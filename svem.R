@@ -1,3 +1,4 @@
+require(Rcpp)
 get_sampler=function(object, data) {
   rstan:::prep_call_sampler(object)
   model_cppname <- object@model_cpp$model_cppname 
@@ -7,7 +8,7 @@ get_sampler=function(object, data) {
   parsed_data <- rstan:::parse_data(get_cppcode(object))
   for (i in seq_along(data)) parsed_data[[names(data)[i]]] <- data[[i]]
   parsed_data <- parsed_data[!sapply(parsed_data, is.null)]
-  new(stan_fit_cpp_module, parsed_data, object@dso@.CXXDSOMISC$cxxfun)
+  methods:::new(stan_fit_cpp_module, parsed_data, object@dso@.CXXDSOMISC$cxxfun)
 }
 
 get_skeleton=function(sampler) {
@@ -34,27 +35,31 @@ adagrad=function(grad, x, master_stepsize=0.01, eps=1e-6, iterations=300, verbos
 svem=function(grad_log_prob, to_optim, init=NULL, plot.elbo=F, samples_for_elbo=10000, log_prob=NULL, ...) {
 
   #to_optim=c(F,T,T)
-  noptim=sum(to_optim)
-  nintegrate=sum(!to_optim)
-  P=length(to_optim)
+  noptim=sum(to_optim)  # Number of variables to optimize over
+  nintegrate=sum(!to_optim)  # Number of variables to integrate over
+  P=length(to_optim)  # Total number of variables
   
+  # Function to take gradient of 1 instance of the elbo
   elbo_grad_mixed=function(temp0, eta=rnorm(nintegrate)) {
-    x=numeric(P)
-    x[to_optim]=temp0[1:noptim]
+    x=numeric(P)  # Initialize vector that represents specific instance of elbo  
+    x[to_optim]=temp0[1:noptim]  # Fill in optimized parameters
+    # Get a speicific instance of parameters we are integrating over
     temp=temp0[(noptim+1):length(temp0)]
     m=temp[1:nintegrate]
     logs=temp[(nintegrate+1):(2*nintegrate)]
     s=exp(logs)
     x[!to_optim]=m+s*eta
+    # Take gradient at this specific instance
     g=grad_log_prob(x)
     stopifnot(!any(is.na(g)))
-    grad_m=g[!to_optim]
-    grad_logs=grad_m*eta*s+1 # plus 1 from entropy
+    grad_m=g[!to_optim]  # gradient of means
+    grad_logs=grad_m*eta*s+1 # gradient of log-sd (plus 1 from entropy)
     res=-c(g[to_optim],grad_m,grad_logs)
     attr(res,"log_prob")=attr(g,"log_prob") + sum(logs)
     res
   }
   
+  # Make init now (optimized variables, mean integrated variables, log-sdev integrated variables)
   if (is.null(init))
     init=numeric(noptim+2*nintegrate) else
       if (is.list(init)) 
@@ -62,7 +67,7 @@ svem=function(grad_log_prob, to_optim, init=NULL, plot.elbo=F, samples_for_elbo=
   
   stopifnot(length(init)==noptim+2*nintegrate)
   
-  adagrad_fit=adagrad(elbo_grad_mixed, init, master_stepsize = 1, ...) 
+  adagrad_fit=adagrad(elbo_grad_mixed, init, master_stepsize = .4, iterations=10000) 
   
   elbo_func=function(eta=rnorm(nintegrate)) attr( elbo_grad_mixed(adagrad_fit$x, eta), "log_prob" )
   

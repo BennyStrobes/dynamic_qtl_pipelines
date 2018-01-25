@@ -4,20 +4,19 @@ source("svem.R")
 # compile stan models
 BETABINOMIAL_GLMM=stan_model("betabinomial_glmm.stan", save_dso=F, auto_write=F)
 
+
+# xNull and xFull are of matrices of dimension N X K
+# ys and ns are vectors of length N
 betaBinomialGLMM=function(ys,ns,xFull,xNull,z,concShape=1.0001,concRate=1e-4,iterations=5000,elbo_samples=3000,...) {
-  
   # check first ncol(xNull) columns of xFull and xNull match
   stopifnot(all(xNull==xFull[,1:ncol(xNull)]))
   
   # degress of freedom
   df=ncol(xFull)-ncol(xNull)
-  
   # data for the null model
   dat=list(N=length(ys), P=ncol(xNull), K=max(z), ys=ys,ns=ns,x=xNull,z=z, concShape=concShape, concRate=concRate)
-  
   # get stan_fit object so we can call sampler$grad_log_prob for the gradient
   sampler=get_sampler(BETABINOMIAL_GLMM, dat)
-  
   # specific which parameters to optimize (rather than integrate over)
   sk=get_skeleton(sampler)
   sk$conc=T
@@ -37,6 +36,7 @@ betaBinomialGLMM=function(ys,ns,xFull,xNull,z,concShape=1.0001,concRate=1e-4,ite
   # set the seed so we can use the same seed for the alternative model
   set.seed(1)
   
+  # Fit null model
   null_gradient_function=function(g) sampler$grad_log_prob(g,T)
   null_likelihood=function(g) sampler$log_prob(g,T,F)
   v_null=svem(null_gradient_function, to_optim, init, plot.elbo = F, iterations = iterations, samples_for_elbo = 0, log_prob = null_likelihood)
@@ -81,5 +81,5 @@ betaBinomialGLMM=function(ys,ns,xFull,xNull,z,concShape=1.0001,concRate=1e-4,ite
     v_full$elbo_func( x ) - v_null$elbo_func( x ) }))
   #loglr=mean(v_full$elbo_progress[(maxit/2):maxit] - v_null$elbo_progress[(maxit/2):maxit])
     
-  list(loglr=loglr, df=df, lrtp=pchisq( 2.0*loglr, lower.tail = F , df=df ) )
+  list(loglr=loglr, df=df, lrtp=pchisq( 2.0*loglr, lower.tail = F , df=df ), v_full=v_full, v_null=v_null)
 }
