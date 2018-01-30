@@ -13,6 +13,11 @@
 # Each file (sample) has the same number of lines (tests)
 cht_input_file_dir="/project2/gilad/bstrober/ipsc_differentiation/time_step_independent_qtl_pipelines/wasp/cht_input_files/"
 
+# File containing all of the target regions we are using. We are using this file to convert from gene positions to ensable id
+target_region_input_file="/project2/gilad/bstrober/ipsc_differentiation/time_step_independent_qtl_pipelines/wasp/target_regions/target_regions_cis_distance_50000_maf_cutoff_0.1_min_reads_60_min_as_reads_10_min_het_counts_2_merged.txt"
+
+# File containing conversions from ensamble ids to gene symbols
+gencode_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/gencode.v19.annotation.gtf.gz"
 
 
 ###############################################################################
@@ -91,18 +96,42 @@ fi
 ### 1. 'joint_log_linear'
 model_version="joint_log_linear"
 
+
+# Maximum number of exonic sites to allow per gene. If there are more than max_sites, take the top $max_sites highest expressing sites
+max_sites="30"
+
 # String used in output files to keep track of parameters used
-parameter_string=$model_version"_environmental_variable_"$environmental_variable_form
+parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_max_sites_"$max_sites
 
 # How many parallel nodes at once
-total_jobs="100"
+total_jobs="300"
 
 ##################
 # Run analysis
 ##################
-job_number="99"
+permute="False"
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
+done
 
-# Stem of all output files
-output_stem=$qtl_results_dir$parameter_string"_"$job_number"_"
 
-sh dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $job_number $total_jobs
+permute="True"
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
+done
+fi
+
+
+if false; then
+# NEED TO CHANGE
+parameter_string=$model_version"_environmental_variable_"$environmental_variable_form
+
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file
+
+fi
+

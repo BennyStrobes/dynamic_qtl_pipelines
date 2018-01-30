@@ -36,7 +36,7 @@ def parse_joint_test_input_file(joint_test_input_file):
         f = gzip.open(file_name)
         header = f.readline()  # Skip header
         filehandles.append(f)
-    return sample_ids, filehandles, environmental_vars
+    return sample_ids, filehandles, np.asarray(environmental_vars)
 
 # Parse through correction_factor_file to extract ordered list of:
 ## 1. library_size_correction_factors
@@ -191,8 +191,48 @@ def determine_start_test_and_end_test(num_tests, total_jobs, job_number):
     end = bin_size*(job_number+1)
     return start, end
 
+# Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that line
+def get_cell_line_indices(joint_test_input_file):
+    f = open(joint_test_input_file)
+    dicti = {} # Initialize dictionary
+    head_count = 0  # used to skip header
+    index_counter = 0  # used to keep track of sample index
+    for line in f:
+        line = line.rstrip()
+        data = line.split()
+        if head_count == 0:  # skip header
+            head_count = head_count + 1
+            continue
+        sample_id = data[0]
+        # extract cell line from sample id
+        cell_line = sample_id.split('_')[0]
+        # If cell line has never been seen before, add to dictionary
+        if cell_line not in dicti:
+            dicti[cell_line] = []
+        # Add index to cell line specific array
+        dicti[cell_line].append(index_counter)
+        index_counter = index_counter + 1
+    for key in dicti:
+        dicti[key] = np.asarray(dicti[key])
+    return dicti
+
+
+# If the dimension of ys and ns (Ie. the number of heterozygous exonic sites) is too large, the algorithm will become prohibitively slow
+# So we subset to the top $max_sites with the largest number of minor allele read counts
+def subset_allelic_count_matrices(ys, ns, max_sites):
+    # The number of exonic sites
+    K = ys.shape[1]
+    if K <= max_sites:
+        return ys, ns
+    # Calculate the the sum number of reads per exonic site
+    total_counts = np.sum(ns, axis=0)
+    # Extract indices of top $max_sites exonic sites
+    indices_to_keep = total_counts.argsort()[-max_sites:][::-1]
+    return ys[:, indices_to_keep], ns[:, indices_to_keep]
+
+
 # Main Driver
-def run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs):
+def run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, max_sites):
     # Determine the number of tests
     num_tests = extract_number_of_tests(joint_test_input_file)
     # For parrallelization purposes
@@ -206,11 +246,12 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
     sample_ids, filehandles, environmental_vars = parse_joint_test_input_file(joint_test_input_file)
     library_size_correction_factors = parse_correction_factor_file(correction_factor_file)
 
+    # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
+    # cell_line_indices = get_cell_line_indices(joint_test_input_file)
+
     t = open(output_stem + 'dynamic_qtl_results.txt', 'w')
     # Loop through each of the tests
     for test_number in range(num_tests):
-        if np.mod(test_number, 10000) == 0:
-            print(test_number)
         # Extract one line from each file handle and put into ordered list
         test_infos = extract_test_info_from_filehandles(filehandles)
         # Only perform tests corresponding to this job number (for parrallelization purposes)
@@ -227,12 +268,16 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
         ### 5. Genotype on allele_2 (h_2)
         gene_counts, ys, ns, h_1, h_2 = reorganize_data(test_infos)
 
+        # If the dimension of ys and ns (Ie. the number of heterozygous exonic sites) is too large, the algorithm will become prohibitively slow
+        # So we subset to the top $max_sites with the largest number of minor allele read counts
+        ys, ns = subset_allelic_count_matrices(ys, ns, max_sites)
+
         # Run dynamic qtl test
-        result = dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version)
+        result = dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute)
         # Print results to output file
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\n')
-        if np.mod(test_number, 100) == 0:
+        if np.mod(test_number, 300) == 0:
             t.flush()
     t.close()
 
@@ -244,9 +289,11 @@ joint_test_input_file = sys.argv[1]  # Ordered list of samples and their corresp
 correction_factor_file = sys.argv[2]  # Ordered list of samples (same order as joint_test_input_file) that contains the library_size_correction_factor for each model_version
 model_version = sys.argv[3]  # Name of glm that we are going to use
 output_stem = sys.argv[4]  # Stem of output file
-job_number = int(sys.argv[5])
-total_jobs = int(sys.argv[6])
+permute = sys.argv[5]  # Binary (True/False) variable on whehter to permute the data or not
+max_sites = int(sys.argv[6])  # Maximum number of exonic sites to allow per gene. If there are more than max_sites, take the top $max_sites highest expressing sites
+job_number = int(sys.argv[7])
+total_jobs = int(sys.argv[8])
 
 
 # Main Driver
-run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs)
+run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, max_sites)
