@@ -110,15 +110,29 @@ total_jobs="300"
 # Run analysis
 ##################
 permute="False"
+if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
     output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
     sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
 done
+fi
 
-
+if false; then
 permute="True"
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
+done
+fi
+
+job_number="0"
+permute="True_sampler"
+output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
+sh dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
 if false; then
+permute="True"
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
     output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
@@ -127,11 +141,9 @@ done
 fi
 
 
-if false; then
 # NEED TO CHANGE
-parameter_string=$model_version"_environmental_variable_"$environmental_variable_form
-
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file
-
+if false; then
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $max_sites
 fi
+
 

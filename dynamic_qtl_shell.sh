@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=20:00:00 --partition=broadwl --mem=5GB
+#SBATCH --time=23:00:00 --partition=broadwl --mem=5GB
 
 
 joint_test_input_file="$1"
