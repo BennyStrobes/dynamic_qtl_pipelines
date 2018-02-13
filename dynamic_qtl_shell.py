@@ -232,7 +232,7 @@ def subset_allelic_count_matrices(ys, ns, max_sites):
 
 
 # Main Driver
-def run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, max_sites):
+def run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, max_sites, optimization_method, permutation_scheme):
     # Determine the number of tests
     num_tests = extract_number_of_tests(joint_test_input_file)
     # For parrallelization purposes
@@ -247,7 +247,7 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
     library_size_correction_factors = parse_correction_factor_file(correction_factor_file)
 
     # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
-    # cell_line_indices = get_cell_line_indices(joint_test_input_file)
+    cell_line_indices = get_cell_line_indices(joint_test_input_file)
 
     t = open(output_stem + 'dynamic_qtl_results.txt', 'w')
     # Loop through each of the tests
@@ -273,11 +273,14 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
         ys, ns = subset_allelic_count_matrices(ys, ns, max_sites)
 
         # Run dynamic qtl test
-        result = dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute)
+        result = dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme)
         # Print results to output file
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
-        t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\n')
-        if np.mod(test_number, 300) == 0:
+        if model_version == 'joint_log_linear':
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(np.atleast_1d(result['fit_full']['par']['conc']).astype(str)) + '\n')
+        elif model_version == 'te_log_linear':
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + 'NA' + '\n')
+        if np.mod(test_number, 10) == 0:
             t.flush()
     t.close()
 
@@ -293,7 +296,9 @@ permute = sys.argv[5]  # Binary (True/False) variable on whehter to permute the 
 max_sites = int(sys.argv[6])  # Maximum number of exonic sites to allow per gene. If there are more than max_sites, take the top $max_sites highest expressing sites
 job_number = int(sys.argv[7])
 total_jobs = int(sys.argv[8])
+optimization_method = sys.argv[9]  # Technique to fit the GLM
+permutation_scheme = sys.argv[10]  # How to permute NUll data (only applies if permute == 'True')
 
 
 # Main Driver
-run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, max_sites)
+run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, max_sites, optimization_method, permutation_scheme)

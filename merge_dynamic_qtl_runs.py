@@ -27,7 +27,7 @@ def merge_parrallel_files(real_parameter_string, output_file, gene_mapping, tota
     # open up output file handle
     t = open(output_file, 'w')
     # Write header
-    t.write('chrom_num\tvariant_position\trs_id\tref_allele\talt_allele\tensamble_id\tnull_log_likelihood\tfull_log_likelihood\tloglr\tpvalue\tbeta\n')
+    t.write('chrom_num\tvariant_position\trs_id\tref_allele\talt_allele\tensamble_id\tnull_log_likelihood\tfull_log_likelihood\tloglr\tpvalue\tbeta\tconc_factors\n')
     # Loop through each parrallel job
     for job_number in range(total_jobs):
         print(job_number)
@@ -39,8 +39,15 @@ def merge_parrallel_files(real_parameter_string, output_file, gene_mapping, tota
             # Convert from gene identifier to ensamble id
             gene_identifier = data[0] + '_' + data[5] + '_' + data[6]
             ensamble_id = gene_mapping[gene_identifier]
-            # Print line to output file
-            t.write('\t'.join(data[0:5]) + '\t' + ensamble_id + '\t' + '\t'.join(data[7:]) + '\n')
+            # print line to output file
+            if len(data) == 13: # have  allelic reads
+                t.write('\t'.join(data[0:5]) + '\t' + ensamble_id + '\t' + '\t'.join(data[7:]) + '\n')
+            elif len(data) == 12: # no allelic reads
+                t.write('\t'.join(data[0:5]) + '\t' + ensamble_id + '\t' + '\t'.join(data[7:]) + '\tNA\n')
+            else:  # Just to make sure there was nothing we didnt account for
+                print('erroro in assumptions')
+
+
     t.close()
 
 

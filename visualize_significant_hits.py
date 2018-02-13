@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('Agg') # Must be before importing matplotlib.pyplot or pylab!
 import matplotlib.pyplot as plt
 import seaborn as sns 
-sns.set(font_scale=2.0)
+sns.set(font_scale=2.4)
 sns.set_style("white")
 
 
@@ -117,6 +117,7 @@ def extract_hits_vector(egenes_file, hits_file):
     hits_vector = []  # Initialize output vector
     head_count = 0  # Skip header
     used_genes = {}
+    counter = 0
     f = open(hits_file)
     for line in f:
         line = line.rstrip()
@@ -127,8 +128,9 @@ def extract_hits_vector(egenes_file, hits_file):
         ensamble_id = data[5]
         rs_id = data[2]
         # Extract relevent information from the current line (current line is 1 variant gene pair)
-        pvalue = float(data[-2])
+        pvalue = float(data[-3])
         if rs_id + '_' + ensamble_id in significant_variant_gene_pairs:  # Hit
+            counter = counter + 1
             # hit information
             dicti = {}
             dicti['chrom_num'] = data[0]
@@ -138,11 +140,13 @@ def extract_hits_vector(egenes_file, hits_file):
             dicti['alt_allele'] = data[4]
             dicti['ensamble_id'] = data[5]
             dicti['pvalue'] = pvalue
-            dicti['beta'] = float(data[-1])
+            dicti['beta'] = float(data[-2])
+            dicti['conc'] = np.asarray(data[-1].split(','))
             hits_vector.append((1,dicti))
             used_genes[ensamble_id] = 1
         else:  # Not a hit
             hits_vector.append((0,'Null'))
+    print(counter)
     return hits_vector
 
 
@@ -265,32 +269,42 @@ def filter_allelic_count_matrices(ys, ns, min_reads):
 # Convert from dosage vector to vector of genotyeps
 def dosage_to_genotype(dosage, ref_allele, alt_allele):
     converter = {}
-    converter[0] = ref_allele + ref_allele
-    converter[1] = ref_allele + alt_allele
-    converter[2] = alt_allele + alt_allele
+    #converter[0] = ref_allele + ref_allele
+    #converter[1] = ref_allele + alt_allele
+    #converter[2] = alt_allele + alt_allele
+    converter[0] = "0"
+    converter[1] = "1"
+    converter[2] = "2"
+
+
     genotype = []
     for dos in dosage:
         genotype.append(converter[dos])
     return np.asarray(genotype)
 
 # Plot to visualize total expression changes over time as a function of genotype
-def gene_total_plotter(gene_counts, dosage, environmental_vars, cell_lines, rs_id, ensamble_id, ref_allele, alt_allele, pvalue, beta, library_size_correction_factors):
+def gene_total_plotter(gene_counts, dosage, environmental_vars, cell_lines, rs_id, ensamble_id, ref_allele, alt_allele, pvalue, beta, library_size_correction_factors,ax1):
     # Convert from dosage vector to vector of genotyeps
     genotype = dosage_to_genotype(dosage, ref_allele, alt_allele)
 
     gene_counts = (gene_counts/library_size_correction_factors)*np.mean(library_size_correction_factors)
 
     df = pd.DataFrame({rs_id: genotype, 'time_step': environmental_vars.astype(int), 'cell_lines': cell_lines, 'gene_counts': np.log(gene_counts)})
-    ax = sns.boxplot(x="time_step", y="gene_counts", hue=rs_id, data=df, palette="Set3",width=.7)
+    ax = sns.boxplot(x="time_step", y="gene_counts", hue=rs_id, data=df, palette="Set3",width=.7,ax=ax1)
     plt.xlabel('Time Step')
     plt.ylabel('log(counts)')
-    plt.title(ensamble_id + ' / pvalue = ' + str(pvalue) + ' / beta = ' + str(beta))
-    sns.despine(offset=1, trim=True)
+    ax1.set_title(ensamble_id + ' / pvalue = ' + str(pvalue) + ' / beta = ' + str(beta))
+    #sns.despine(offset=1, trim=True)
     return ax
 
-def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, cell_lines, rs_id, ensamble_id, pvalue, beta):
+def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, cell_lines, rs_id, ensamble_id, pvalue, beta, conc,axy, exonic_site_num):
     ys, ns = filter_allelic_count_matrices(ys, ns, 0)
-
+    if ys.shape[1] != len(conc):
+        print('fatal errooror')
+        pdb.set_trace()
+    # Order sites by smallest variance to largest
+    ys = ys[:, conc.argsort()[::-1]]
+    ns = ns[:, conc.argsort()[::-1]]
     # Extract allelic fractions at each site
     time_steps = []
     allelic_fractions = []
@@ -303,29 +317,27 @@ def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, cell_lines, 
     for sample_num in np.arange(num_samples):
         if h_1[sample_num] == h_2[sample_num]:  # homozygous variant
             continue
-        for exonic_site_num in np.arange(num_exonic_sites):
-            if ns[sample_num, exonic_site_num] <= 2:
-                continue
-            if h_1[sample_num] == 0:
-                allelic_fraction = float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num]
-            elif h_2[sample_num] == 0:
-                allelic_fraction = 1 - (float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num])
-            else:
-                print('eroroororo')
-            depths.append(ns[sample_num,exonic_site_num])
-            allelic_fractions.append(allelic_fraction)
-            #allelic_fractions.append(abs(allelic_fraction-.5))
-            time_steps.append(float(environmental_vars[sample_num]))
-            cell_lines_arr.append(cell_lines[sample_num])
-            exonic_sites.append(exonic_site_num)
-            identifiers.append('site_' + str(exonic_site_num + 1) + '_' + cell_lines[sample_num])
+        if ns[sample_num, exonic_site_num] <= 2:
+            continue
+        if h_1[sample_num] == 0:
+            allelic_fraction = float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num]
+        elif h_2[sample_num] == 0:
+            allelic_fraction = 1 - (float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num])
+        else:
+            print('eroroororo')
+        depths.append(ns[sample_num,exonic_site_num])
+        allelic_fractions.append(allelic_fraction)
+        #allelic_fractions.append(abs(allelic_fraction-.5))
+        time_steps.append(float(environmental_vars[sample_num]))
+        cell_lines_arr.append(cell_lines[sample_num])
 
     # PLOT!
-    df = pd.DataFrame({'time_step': time_steps,'read_depth':depths, 'cell_lines': cell_lines_arr, 'exonic_sites': exonic_sites, 'allelic_fraction': allelic_fractions, 'identifiers': identifiers})
+    df = pd.DataFrame({'time_step': np.asarray(time_steps).astype(int),'read_depth':depths, 'cell_lines': cell_lines_arr, 'allelic_fraction': allelic_fractions})
 
     #ax = sns.pointplot(x="time_step", y="allelic_fraction", hue="identifiers", data=df)
     #ax = sns.regplot(x="time_step", y="allelic_fraction", data=df)
-    ax = sns.lmplot(data=df,x="time_step", y="allelic_fraction",col="exonic_sites", hue="exonic_sites",col_wrap=3,ci=None)
+    ax = sns.regplot(data=df,x="time_step", y="allelic_fraction",ci=None, ax=axy)
+    ax.set_title("Exonic site = " + str(exonic_site_num) + " / conc = " + str(conc[conc.argsort()[::-1]][exonic_site_num]))
     plt.ylim(ymax=1) # adjust the max leaving min unchanged
     plt.ylim(ymin=0)
     #ax = sns.boxplot(x="time_step", y="allelic_fraction", hue=exonic_sites,data=df, palette="Set3",width=.7)
@@ -340,15 +352,39 @@ def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, cell_lines, 
 
 # PLOT!
 def visualize_hit(ys, ns, gene_counts, h_1, h_2, environmental_vars, cell_lines, library_size_correction_factors, test_dicti, output_file):
+    plt.clf()
     # Plot to visualize total expression changes over time as a function of genotype
-    fig = plt.figure(figsize=(20,10))
+    fig = plt.figure(figsize=(40, 20))
 
-    gene_total_plot = gene_total_plotter(gene_counts, h_1+h_2, environmental_vars, cell_lines, test_dicti['rs_id'], test_dicti['ensamble_id'], test_dicti['ref_allele'], test_dicti['alt_allele'], test_dicti['pvalue'], test_dicti['beta'], library_size_correction_factors)
+    # call regplot on each axes
+    ax1 = plt.subplot2grid((2, 4), (0, 0), colspan=4)
+    ax2 = plt.subplot2grid((2, 4), (1, 0))
+    ax3 = plt.subplot2grid((2, 4), (1, 1))
+    ax4 = plt.subplot2grid((2, 4), (1, 2))
+    ax5 = plt.subplot2grid((2, 4), (1, 3))
+    #sns.regplot(x=idx, y=df['x'], ax=ax1)
+    #sns.regplot(x=idx, y=df['y'], ax=ax2)
+    num_sites = ys.shape[1]
+    if num_sites > 4:
+        num_sites = 4
+
+    gene_total_plot = gene_total_plotter(gene_counts, h_1+h_2, environmental_vars, cell_lines, test_dicti['rs_id'], test_dicti['ensamble_id'], test_dicti['ref_allele'], test_dicti['alt_allele'], test_dicti['pvalue'], test_dicti['beta'], library_size_correction_factors,ax1)
+    #fig.savefig(output_file)
+    num_sites = ys.shape[1]
+    if num_sites > 4:
+        num_sites = 4
+    for exonic_site_num in np.arange(num_sites):
+        if exonic_site_num == 0:
+            axy = ax2
+        elif exonic_site_num == 1:
+            axy = ax3
+        elif exonic_site_num == 2:
+            axy = ax4
+        elif exonic_site_num == 3:
+            axy = ax5
+        allelic_imbalence_plot = allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, cell_lines, test_dicti['rs_id'], test_dicti['ensamble_id'], test_dicti['pvalue'], test_dicti['beta'], test_dicti['conc'].astype(float),axy, exonic_site_num)
+    plt.tight_layout()
     fig.savefig(output_file)
-    #fig = plt.figure(figsize=(20,10))
-    #allelic_imbalence_plot = allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, cell_lines, test_dicti['rs_id'], test_dicti['ensamble_id'], test_dicti['pvalue'], test_dicti['beta'])
-    #allelic_imbalence_plot.savefig(output_file)
-    print('hit')
 
 ###########################
 # Command Line args
@@ -375,8 +411,6 @@ hits_vector = extract_hits_vector(egenes_file, all_hits_file)
 # Determine the number of tests
 num_tests = extract_number_of_tests(joint_test_input_file)
 
-if num_tests != len(hits_vector):
-    print('eroorrooror')
 
 # First extract ordered list of:
 ## 1. Sample Ids
@@ -410,9 +444,5 @@ for test_number in range(num_tests):
     # Name of output file to save plot to
     output_file = qtl_visualization_dir + parameter_string + '_' + hits_vector[test_number][1]['ensamble_id'] + '_' + hits_vector[test_number][1]['rs_id'] + '_dynamic_qtl_summary.png'
    
-    # PLOT! 
-    #if ys.shape[1] == 0:
-     #   print('miss')
-     #   continue
     visualize_hit(ys, ns, gene_counts, h_1, h_2, environmental_vars, cell_lines, library_size_correction_factors, hits_vector[test_number][1], output_file)
 

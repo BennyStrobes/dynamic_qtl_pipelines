@@ -12,7 +12,6 @@ data {
   real<lower=0> concRate;  
 }
 parameters {
-  real<lower=0> conc[K]; 
   real<lower=0> nb_conc; 
   vector[P] beta;
 }
@@ -25,20 +24,12 @@ model {
     real te; 
     real allele1; 
     real allele2; 
-    real p; 
     allele1 = exp(xb_1[n]);
     allele2 = exp(xb_2[n]);
     te = allele1 + allele2;
-    p = allele1/te;
-    for (k in 1:K) {
-      if (ns[n,k]>0) {
-        ys[n,k] ~ beta_binomial(ns[n,k], conc[k]*p, conc[k]*(1.0-p));
-      }
-    }
     if (gene_counts[n]>0) {
       gene_counts[n] ~ neg_binomial_2( te * library_size[n], nb_conc );
     }
   }
-  conc ~ gamma(concShape, concRate);
   nb_conc ~ gamma(concShape, concRate);
 }

@@ -4,7 +4,20 @@ import sys
 import pdb
 import gzip
 
-def extract_ensamble_ids_from_qtl_results(qtl_results_file):
+def extract_ensamble_ids_from_qtl_results(qtl_results_file, egenes_file):
+    f = open(egenes_file)
+    head_count = 0
+    tests = {}
+    for line in f:
+        line = line.rstrip()
+        data = line.split()
+        if head_count == 0:
+            head_count = head_count + 1
+            continue
+        rs_id = data[2]
+        ensamble_id = data[5]
+        tests[ensamble_id + '_' + rs_id] = 1
+    f.close()
     f = open(qtl_results_file)
     head_count = 0
     hits = {}
@@ -15,9 +28,10 @@ def extract_ensamble_ids_from_qtl_results(qtl_results_file):
         if head_count == 0:
             head_count = head_count + 1
             continue
-        pvalue = float(data[-2])
+        pvalue = float(data[-3])
         ensamble_id = data[5]
-        if pvalue < .000001:
+        rs_id = data[2]
+        if ensamble_id + '_' + rs_id in tests:
             hits[ensamble_id] = 1
         else:
             background[ensamble_id] = 1
@@ -64,12 +78,13 @@ def print_array(file_name, array):
     t.close()
 
 qtl_results_file = sys.argv[1]
-qtl_gene_set_enrichment_dir = sys.argv[2]
-parameter_string = sys.argv[3]
-gencode_file = sys.argv[4]
+egenes_file = sys.argv[2]
+qtl_gene_set_enrichment_dir = sys.argv[3]
+parameter_string = sys.argv[4]
+gencode_file = sys.argv[5]
 
 
-ensamble_hits, ensamble_background = extract_ensamble_ids_from_qtl_results(qtl_results_file)
+ensamble_hits, ensamble_background = extract_ensamble_ids_from_qtl_results(qtl_results_file, egenes_file)
 
 gene_symbol_hits = convert_from_ensamble_to_gene_symbol(ensamble_hits, gencode_file)
 
@@ -86,11 +101,15 @@ print_array(background_file, gene_symbol_background)
 #np.savetxt(background_file, gene_symbol_background,fmt="%s",delimiter="\n")
 
 
-save_file = qtl_gene_set_enrichment_dir + parameter_string + '_gsea_output.txt'
-geneset_file = '/project2/gilad/bstrober/tools/tools/gsea/data/' + 'c2.cp.reactome.v5.1.symbols.gmt.txt'
-#geneset_file = '/project2/gilad/bstrober/tools/tools/gsea/data/' + 'c2.cp.biocarta.v5.1.symbols.gmt.txt'
-os.system('gsea ' + hits_file + ' ' + background_file + ' ' + geneset_file + ' ' + save_file)
+genesets = ['h.all.v5.1.symbols.gmt.txt', 'c2.cp.biocarta.v5.1.symbols.gmt.txt', 'c2.cp.kegg.v5.1.symbols.gmt.txt']
+names = ['hallmark', 'biocarta', 'kegg']
+for i, val in enumerate(genesets):
+    name = names[i]
+    geneset_file = '/project2/gilad/bstrober/tools/tools/gsea/data/' + val
+    save_file = qtl_gene_set_enrichment_dir + parameter_string + '_' + name + '_gsea_output.txt'
+    #geneset_file = '/project2/gilad/bstrober/tools/tools/gsea/data/' + 'c2.cp.biocarta.v5.1.symbols.gmt.txt'
+    os.system('gsea ' + hits_file + ' ' + background_file + ' ' + geneset_file + ' ' + save_file)
 
 
-new_save_file = qtl_gene_set_enrichment_dir + parameter_string + '_gsea_sorted_output.txt'
-sort_gsea(save_file, new_save_file)
+    new_save_file = qtl_gene_set_enrichment_dir + parameter_string + '_' + name + '_gsea_sorted_output.txt'
+    sort_gsea(save_file, new_save_file)

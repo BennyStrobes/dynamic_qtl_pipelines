@@ -94,56 +94,112 @@ fi
 #################
 # Name of model. Current options are:
 ### 1. 'joint_log_linear'
-model_version="joint_log_linear"
+### 2. 'te_log_linear'
+model_version="te_log_linear"
 
 
 # Maximum number of exonic sites to allow per gene. If there are more than max_sites, take the top $max_sites highest expressing sites
-max_sites="30"
+max_sites="25"
+
+# Optimization method
+optimization_method="LBFGS"
 
 # String used in output files to keep track of parameters used
-parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_max_sites_"$max_sites
+parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_max_sites_"$max_sites"_optimizer_"$optimization_method
 
 # How many parallel nodes at once
-total_jobs="300"
+total_jobs="100"
 
 ##################
 # Run analysis
 ##################
+
+##########################
+# Run on Real data
 permute="False"
+permutation_scheme="none"
+##########################
 if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_permutation_scheme_"$permutation_scheme"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs $optimization_method $permutation_scheme
 done
 fi
 
-if false; then
+
+##########################
+# Run permutation independently in each cell line
 permute="True"
-for job_number in $(seq 0 $(($total_jobs-1))); do 
-    # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
-done
-fi
-
-job_number="0"
-permute="True_sampler"
-output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
-sh dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
+permutation_scheme="shuffle_lines"
+##########################
 if false; then
-permute="True"
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_permutation_scheme_"$permutation_scheme"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs $optimization_method $permutation_scheme
 done
 fi
 
 
+
+##########################
+# Run permutation independently in heterozygotes and homozygotes
+permute="True"
+permutation_scheme="shuffle_hets"
+##########################
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_permutation_scheme_"$permutation_scheme"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs $optimization_method $permutation_scheme
+done
+fi
+
+
+
+##########################
+# Run permutation for all samples
+permute="True"
+permutation_scheme="shuffle_all"
+##########################
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_permutation_scheme_"$permutation_scheme"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs $optimization_method $permutation_scheme
+done
+fi
+
+##########################
+# Run permutation for all samples
+permute="True"
+permutation_scheme="sample_null"
+##########################
+if false; then
+for job_number in $(seq 1 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permute_"$permute"_permutation_scheme_"$permutation_scheme"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $max_sites $job_number $total_jobs $optimization_method $permutation_scheme
+done
+fi
+
+
+
+if false; then
 # NEED TO CHANGE
-if false; then
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $max_sites
+permutation_scheme="shuffle_hets"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $max_sites $permutation_scheme
+
+permutation_scheme="shuffle_all"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $max_sites $permutation_scheme
+
+permutation_scheme="shuffle_lines"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $max_sites $permutation_scheme
+
+permutation_scheme="sample_null"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $max_sites $permutation_scheme
 fi
 
 
+Rscript merge_permutation_scheme_qq_plot.R $parameter_string $qtl_results_dir $qtl_visualization_dir
