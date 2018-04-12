@@ -21,20 +21,31 @@ def get_sample_index(qvalue_file, qval_thresh):
     return best_index
 
         
-
+def get_pvalz(file_name):
+    aa = np.loadtxt(file_name,dtype=str,delimiter='\t')
+    return np.asarray(aa[1:,9]).astype(float)
 
 # Get pvalue threshold corresponding to qval_thresh in null
-def get_pval_thresh(null_file, qvalue_file, qval_thresh):
-    # First, get index of sample that has the largest qvalue less than qval_thresh
-    index = get_sample_index(qvalue_file, qval_thresh)
-    f = open(null_file)
-    pval_thresh = 0
-    for i, line in enumerate(f):
-        line = line.rstrip()
-        data = line.split()
-        if i == index:
-            pvaller = float(data[9])
-    return pvaller
+def get_pval_thresh(real_file, null_file, fdr_thresh):
+    real_pvalz = get_pvalz(real_file)
+    null_pvalz = get_pvalz(null_file)
+    sorted_real_pvalz = sorted(np.unique(real_pvalz))
+    best_fdr = 1000
+    best_pval = 1000
+    binary = False
+    for pval in sorted_real_pvalz[0:100000]:
+        num_real = len(np.where(real_pvalz <= pval)[0])
+        num_null = len(np.where(null_pvalz <= pval)[0])
+        emperical_fdr = float(num_null)/num_real
+        if emperical_fdr < best_fdr and emperical_fdr <= fdr_thresh:
+            best_fdr = emperical_fdr
+            best_pval = pval
+            binary = True
+    if binary:
+        return best_pval
+    else:
+        return -1.0
+
 
 def filter_to_significant_results(real_file, significant_results_file, pval_thresh):
     f = open(real_file)
@@ -84,14 +95,14 @@ def filter_to_egenes(significant_results_file, significant_gene_results_file):
 
 null_file = sys.argv[1]
 real_file = sys.argv[2]
-qvalue_file = sys.argv[3]
-significant_results_file = sys.argv[4]  #  Output file
-significant_gene_results_file = sys.argv[5]  # Ouptut file
-qval_thresh = float(sys.argv[6])
+significant_results_file = sys.argv[3]  #  Output file
+significant_gene_results_file = sys.argv[4]  # Ouptut file
+fdr_thresh = float(sys.argv[5])
 
 
-# Get pvalue threshold corresponding to qval_thresh in null
-pval_thresh = get_pval_thresh(null_file, qvalue_file, qval_thresh)
+
+# Get pvalue threshold corresponding to fdr_thresh in null
+pval_thresh = get_pval_thresh(real_file, null_file, fdr_thresh)
 
 # Create list of variant-gene pairs that have pvalue less than pvalue threshold
 filter_to_significant_results(real_file, significant_results_file, pval_thresh)

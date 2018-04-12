@@ -1,31 +1,60 @@
+import GPy
 import numpy as np
 import pystan
 import pdb
 from scipy import stats
 import pickle
-
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg') # Must be before importing matplotlib.pyplot or pylab!
-import matplotlib.pyplot as plt
-import seaborn as sns 
-sns.set(font_scale=2.4)
-sns.set_style("white")
+
 
 
 # Load in data into pystan format for null model (not including interaction term)
-def load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors):
+def load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, model_version, covs, covariate_method, te_nb_conc):
     N = len(gene_counts)
     K = ys.shape[1]
+    T = int(np.max(environmental_vars) + 1)
     intercept = np.ones((N, 1))
     env_mat = np.transpose(np.asmatrix(environmental_vars))
     h_1_mat = np.transpose(np.asmatrix(h_1))
     h_2_mat = np.transpose(np.asmatrix(h_2))
-    x_1 = np.hstack((intercept, env_mat, h_1_mat))
-    x_2 = np.hstack((intercept, env_mat, h_2_mat))
-    data = dict(N=N, K=K, P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, x_2=x_2, ys=ys, ns=ns, gene_counts=gene_counts, concShape=1.001, concRate=0.001)
+    if covariate_method == 'none':
+        x_1 = np.hstack((intercept, env_mat, h_1_mat))
+        x_2 = np.hstack((intercept, env_mat, h_2_mat))
+    elif covariate_method == 't15_troponin':
+        cov_mat = np.transpose(np.asmatrix(covs*environmental_vars))
+        x_1 = np.hstack((intercept, env_mat, h_1_mat, cov_mat))
+        x_2 = np.hstack((intercept, env_mat, h_2_mat, cov_mat))
+    # Change of basis functions
+    if model_version == 'te_log_linear_quadratic_basis':
+        x_1 = np.hstack((x_1, np.square(x_1[:,1])))
+        x_2 = np.hstack((x_2, np.square(x_2[:,1])))
+    elif model_version == 'te_log_linear_cubic_control':
+        x_1 = np.hstack((x_1, np.power(x_1[:,1], 2)))
+        x_2 = np.hstack((x_2, np.power(x_2[:,1], 2)))
+    data = dict(N=N, K=K, T=T, nb_conc=te_nb_conc, time_step=(environmental_vars.astype(int) + 1), P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, x_2=x_2, ys=ys, ns=ns, gene_counts=gene_counts, concShape=1.001, concRate=0.001, as_overdispersion_parameter=as_overdispersion_parameter, as_overdispersion_parameter_sample_specific=as_overdispersion_parameter_sample_specific)
     return data
 
+
+def permute_environmental_vars_within_cell_line_ordered(environmental_vars, cell_line_indices):
+    # initialize output vector
+    environmental_vars_perm = np.zeros(len(environmental_vars))
+
+    # Get largest and smallestenvironmental variable
+    maxy = max(environmental_vars)
+    miny = min(environmental_vars)
+
+    # Create mapping from time step to permuted time step
+    varz = np.arange(miny,maxy+1)
+    perm_varz = np.random.permutation(varz)
+    print(perm_varz)
+    mapping = {}
+    for i, var in enumerate(varz):
+        mapping[var] = perm_varz[i]
+
+    for i, environmental_var in enumerate(environmental_vars):
+        environmental_vars_perm[i] = mapping[environmental_var]
+
+    return environmental_vars_perm
 
 def permute_environmental_vars_within_cell_line(environmental_vars, cell_line_indices):
     environmental_vars_perm = np.zeros(len(environmental_vars))
@@ -216,9 +245,10 @@ def draw_samples_from_fitted_null_te_model(nb_conc, beta, null_data):
     return np.asarray(sample_gene_counts).astype(int)
 
 # Load in data into pystan format for full model (including interaction term)
-def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices,optimization_method, model_version):
+def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices,optimization_method, model_version, as_overdispersion_parameter,as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc):
     N = len(gene_counts)
     K = ys.shape[1]
+    T = int(np.max(environmental_vars) + 1)
     intercept = np.ones((N, 1))
     env_mat = np.transpose(np.asmatrix(environmental_vars))
     h_1_mat = np.transpose(np.asmatrix(h_1))
@@ -228,6 +258,10 @@ def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library
         # Run permutation independently in each cell line
         if permutation_scheme == 'shuffle_lines':
             environmental_vars_perm = permute_environmental_vars_within_cell_line(environmental_vars, cell_line_indices)
+            h_1_interaction_mat = np.transpose(np.asmatrix(h_1*environmental_vars_perm))
+            h_2_interaction_mat = np.transpose(np.asmatrix(h_2*environmental_vars_perm))
+        elif permutation_scheme == 'shuffle_lines_ordered':
+            environmental_vars_perm = permute_environmental_vars_within_cell_line_ordered(environmental_vars, cell_line_indices)
             h_1_interaction_mat = np.transpose(np.asmatrix(h_1*environmental_vars_perm))
             h_2_interaction_mat = np.transpose(np.asmatrix(h_2*environmental_vars_perm))
         # Run permutation independently in heterozygotes and homozygotes
@@ -253,7 +287,7 @@ def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library
                 # Also update null data to have same allelic counts
                 null_data['ys'] = ys
                 null_data['gene_counts'] = gene_counts
-            elif model_version == 'te_log_linear':
+            elif model_version == 'te_log_linear' or model_version == 'te_log_linear_quadratic_basis' or model_version == 'te_log_linear_cubic_control':
                 gene_counts = draw_samples_from_fitted_null_te_model(np.atleast_1d(op_null['par']['nb_conc'])[0], op_null['par']['beta'], null_data)
                 null_data['gene_counts'] = gene_counts
         else:
@@ -261,32 +295,75 @@ def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library
     elif permute == 'False':  # Do not permute the data
         h_1_interaction_mat = np.transpose(np.asmatrix(h_1*environmental_vars))
         h_2_interaction_mat = np.transpose(np.asmatrix(h_2*environmental_vars))
-    x_1 = np.hstack((intercept, env_mat, h_1_mat, h_1_interaction_mat))
-    x_2 = np.hstack((intercept, env_mat, h_2_mat, h_2_interaction_mat))
-
-    full_data = dict(N=N, K=K, P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, x_2=x_2, ys=ys, ns=ns, gene_counts=gene_counts, concShape=1.001, concRate=0.001)
+    if covariate_method == 'none':
+        x_1 = np.hstack((intercept, env_mat, h_1_mat, h_1_interaction_mat))
+        x_2 = np.hstack((intercept, env_mat, h_2_mat, h_2_interaction_mat))
+    elif covariate_method == 't15_troponin':
+        cov_mat = np.transpose(np.asmatrix(covs*environmental_vars))
+        x_1 = np.hstack((intercept, env_mat, h_1_mat, cov_mat, h_1_interaction_mat))
+        x_2 = np.hstack((intercept, env_mat, h_2_mat, cov_mat, h_2_interaction_mat))
+    # Change of basis functions
+    if model_version == 'te_log_linear_quadratic_basis':
+        x_1 = np.hstack((x_1[:, 0:3], np.square(x_1[:, 1]), x_1[:, -1], np.square(x_1[:, -1])))
+        x_2 = np.hstack((x_2[:, 0:3], np.square(x_2[:, 1]), x_2[:, -1], np.square(x_2[:, -1])))
+    elif model_version == 'te_log_linear_cubic_control':
+        x_1 = np.hstack((null_data['x_1'], h_1_interaction_mat))
+        x_2 = np.hstack((null_data['x_2'], h_2_interaction_mat))
+    full_data = dict(N=N, nb_conc=te_nb_conc, K=K, T=T, P=x_1.shape[1], time_step=(environmental_vars.astype(int) + 1), library_size=library_size_correction_factors, x_1=x_1, x_2=x_2, ys=ys, ns=ns, gene_counts=gene_counts, concShape=1.001, concRate=0.001, as_overdispersion_parameter=as_overdispersion_parameter, as_overdispersion_parameter_sample_specific=as_overdispersion_parameter_sample_specific)
     return full_data, null_data
 
 
-def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration):
+def quadratic_basis_initialize_optimization(full_data, seed, algorithm, sm):
+    temp_x_1 = np.hstack((full_data['x_1'][:, 0:3], full_data['x_1'][:, 4]))
+    temp_x_2 = np.hstack((full_data['x_2'][:, 0:3], full_data['x_2'][:, 4]))
+    temp_data = dict(x_1=temp_x_1, x_2=temp_x_2, P=temp_x_1.shape[1], N=full_data['N'], K=full_data['K'], library_size=full_data['library_size'], ys=full_data['ys'], ns=full_data['ns'], gene_counts=full_data['gene_counts'], concShape=full_data['concShape'], concRate=full_data['concRate'], as_overdispersion_parameter=full_data['as_overdispersion_parameter'], as_overdispersion_parameter_sample_specific=full_data['as_overdispersion_parameter_sample_specific'])
+    op_temp = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    return op_temp
+
+def cubic_control_initialize_optimization(full_data, seed, algorithm, sm):
+    temp_x_1 = full_data['x_1'][:,0:3]
+    temp_x_2 = full_data['x_2'][:,0:3]
+    temp_data = dict(x_1=temp_x_1, x_2=temp_x_2, P=temp_x_1.shape[1], N=full_data['N'], K=full_data['K'], library_size=full_data['library_size'], ys=full_data['ys'], ns=full_data['ns'], gene_counts=full_data['gene_counts'], concShape=full_data['concShape'], concRate=full_data['concRate'], as_overdispersion_parameter=full_data['as_overdispersion_parameter'], as_overdispersion_parameter_sample_specific=full_data['as_overdispersion_parameter_sample_specific'])
+    op_temp = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    return op_temp
+
+
+def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_version):
     # Use same seed for null and alternate models
     seed = np.random.randint(10000000) + 1
 
-    # Run pystan gradient based optimization on null model
-    op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    if model_version == 'te_log_linear_quadratic_basis':
+        # First optimize model on simpler version first. And use simpler model as initialization
+        op_temp = quadratic_basis_initialize_optimization(full_data, seed, algorithm, sm)
+        init_full = dict(nb_conc=np.atleast_1d(op_temp['par']['nb_conc'])[0], beta = np.asarray([op_temp['par']['beta'][0], op_temp['par']['beta'][1], op_temp['par']['beta'][2], 0.0, op_temp['par']['beta'][3], 0]))
+        op_full = sm.optimizing(data=full_data, as_vector=False, init=init_full, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    elif model_version == 'te_log_linear_cubic_control':
+        op_temp = cubic_control_initialize_optimization(full_data, seed, algorithm, sm)
+        init_full = dict(nb_conc=np.atleast_1d(op_temp['par']['nb_conc'])[0], beta = np.asarray([op_temp['par']['beta'][0], op_temp['par']['beta'][1], op_temp['par']['beta'][2], 0.0, 0.0]))
+        op_full = sm.optimizing(data=full_data, as_vector=False, init=init_full, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    else:
+        # Run pystan gradient based optimization on full model
+        op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
 
-    if 'conc' in op_full:
-        # Initialize null model with parameters defining the full model
+    # Initialize null model with parameters defining the full model
+    # initialization for joint model
+    if 'conc' in op_full['par'] and 'nb_conc' in op_full['par']:
         init_null = dict(conc=np.atleast_1d(op_full['par']['conc']), nb_conc=op_full['par']['nb_conc'], beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
-    elif 'conc' not in op_full:
+    # Initialization for te only model
+    elif 'conc' not in op_full and 'nb_conc' in op_full['par']:
         init_null = dict(nb_conc=op_full['par']['nb_conc'], beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
-
+    # Initialization for as only model
+    elif 'conc' in op_full['par'] and 'nb_conc' not in op_full['par']:
+        init_null = dict(conc=np.atleast_1d(op_full['par']['conc']), beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
+    elif 'conc' not in op_full['par'] and 'nb_conc' not in op_full['par']:
+        init_null = dict(beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
 
     # Run pystan gradient based optimization on null model
     if iteration == 1:
-        op_null = sm.optimizing(data=null_data, as_vector=False, init=init_null, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+        #sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+        op_null = sm.optimizing(data=null_data, as_vector=False, init=init_null, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
     else:  # Don't initialize with full model on later iterations
-        op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+        op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
 
     # Compute chi-squared test statistic
     loglr = op_full['value'] - op_null['value']
@@ -294,7 +371,7 @@ def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration):
     # Consider possibility that null did not fully converge
     if (loglr > 3):
         # Refit the null with new random init
-        refit_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+        refit_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
         # Use the null model that has the higher likelihood
         if refit_null['value'] > op_null['value']:
             op_null = refit_null
@@ -337,21 +414,6 @@ def visualize_hit(ys, ns, gene_counts, h_1, h_2, environmental_vars, library_siz
     plt.tight_layout()
     fig.savefig(output_file)
 
-def filter_allelic_count_matrices(ys, ns, min_reads):
-    K = ys.shape[1]
-    # Calculate the the sum number of reads per exonic site
-    total_counts = np.sum(ns, axis=0)
-
-    indexes = total_counts.argsort()[::-1]
-
-    ys = ys[:, indexes]
-    ns = ns[:, indexes]
-
-    total_counts = np.sum(ns, axis=0)
-    
-    read_indexes = np.where(total_counts > min_reads)[0]
-
-    return ys[:, read_indexes], ns[:, read_indexes]
 
 # Convert from dosage vector to vector of genotyeps
 def dosage_to_genotype(dosage, ref_allele, alt_allele):
@@ -385,7 +447,6 @@ def gene_total_plotter(gene_counts, dosage, environmental_vars, rs_id, ensamble_
     return ax
 
 def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, rs_id, ensamble_id, pvalue, beta, conc,axy, exonic_site_num):
-    ys, ns = filter_allelic_count_matrices(ys, ns, 0)
     if ys.shape[1] != len(conc):
         print('fatal errooror')
         pdb.set_trace()
@@ -407,9 +468,9 @@ def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, rs_id, ensam
         if ns[sample_num, exonic_site_num] <= 2:
             continue
         if h_1[sample_num] == 0:
-            allelic_fraction = float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num]
+            allelic_fraction = 1.0 - float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num]
         elif h_2[sample_num] == 0:
-            allelic_fraction = 1 - (float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num])
+            allelic_fraction = (float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num])
         else:
             print('eroroororo')
         depths.append(ns[sample_num,exonic_site_num])
@@ -436,27 +497,54 @@ def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, rs_id, ensam
     # = sns.regplot(x="sepal_length", y="sepal_width", data=iris)
     return ax
 
+def run_gp_regression(y, x):
+    np.random.seed(2)
+    dim = x.shape[1]
+    kernel = GPy.kern.RBF(1, active_dims=[0])
+    for i in range(1, dim):
+        kernel = kernel + GPy.kern.RBF(1,active_dims=[i])
+    kernel = kernel + GPy.kern.White(dim) + GPy.kern.Bias(input_dim=dim)
+    #kernel = GPy.kern.RBF(dim)
+    #kernel = GPy.kern.RBF(input_dim=dim) #+ GPy.kern.White(dim) #+ GPy.kern.Bias(input_dim=dim)
+    poisson_likelihood = GPy.likelihoods.Poisson()
+    laplace_inf = GPy.inference.latent_function_inference.Laplace()
+    m = GPy.core.GP(X=x, Y=y, likelihood=poisson_likelihood, inference_method=laplace_inf, kernel=kernel)
+    m.randomize()
+    m.optimize()
+    return m
 
-def dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme):
+
+def dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc):
     # Load in correct model
     if model_version == 'joint_log_linear':
         #sm = pystan.StanModel(file='joint_log_linear.stan')
         #f = open('joint_log_linear.pkl','wb')
         #pickle.dump(sm, f)
         sm = pickle.load(open('joint_log_linear.pkl', 'rb'))
-    # quadratic basis function
-    elif model_version == 'quadratic_basis_joint_log_linear':
-        sm = pickle.load(open('joint_log_linear.pkl', 'rb'))
     elif model_version == 'te_log_linear':
         sm = pickle.load(open('te_log_linear.pkl', 'rb'))
-
+    elif model_version == 'as_log_linear':
+        sm = pickle.load(open('as_log_linear.pkl', 'rb'))
+    elif model_version == 'as_log_linear_fixed_overdispersion':
+        sm = pickle.load(open('as_log_linear_fixed_overdispersion.pkl', 'rb'))
+    elif model_version == 'as_log_linear_fixed_sample_overdispersion':
+        sm = pickle.load(open('as_log_linear_fixed_sample_overdispersion.pkl', 'rb'))
+    elif model_version == 'te_log_linear_quadratic_basis':
+        sm = pickle.load(open('te_log_linear.pkl', 'rb'))
+    elif model_version == 'te_gaussian_process':
+        sm = 'fake'
+    elif model_version == 'te_log_linear_cubic_control':
+        sm = pickle.load(open('te_log_linear.pkl', 'rb'))
+    elif model_version == 'te_log_linear_time_od':
+        sm = pickle.load(open('te_log_linear_time_od.pkl', 'rb'))
+    elif model_version == 'te_log_linear_time_od_offline':
+        sm = pickle.load(open('te_log_linear_time_od_offline.pkl', 'rb'))
 
     # Load in data into pystan format
-    null_data = load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors)
-    full_data, null_data = load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices, optimization_method, model_version)
+    null_data = load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, model_version, covs, covariate_method, te_nb_conc)
+    full_data, null_data = load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices, optimization_method, model_version, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc)
     # Calculate the degrees of freedom of LRT
     dof = full_data['P'] - null_data['P']
-
     # Run test by placing in try catch loop
     # If doesn't converge, then try it again with a different seed
     working = True
@@ -464,7 +552,7 @@ def dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_
     while working:
         try:
             # Run dynamic qtls
-            op_null, op_full, loglr = run_dynamic_qtl(sm, null_data, full_data, dof, optimization_method, iteration)
+            op_null, op_full, loglr = run_dynamic_qtl(sm, null_data, full_data, dof, optimization_method, iteration, model_version)
             working = False
             # Make sure log likelihood is not nan
             if np.isnan(op_null['value']) or np.isnan(op_full['value']) or np.isnan(loglr):
@@ -476,24 +564,24 @@ def dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_
             iteration = iteration + 1
             # If you've tried 10 different start seeds and none of them converged, then do LBFGS
             if iteration > 10:
-                print('LBFGS ran')
+                print('FAILURE')
                 print(null_data)
                 print(full_data)
-                op_null, op_full, loglr = run_dynamic_qtl(sm, null_data, full_data, dof, "LBFGS", iteration)
+                op_null, op_full, loglr = run_dynamic_qtl(sm, null_data, full_data, dof, "LBFGS", iteration, model_version)
 
     # Compute pvalue from chi-squared test statistic
     pvalue = 1.0 - stats.chi2.cdf(2.0*loglr, dof)
     
-    #if pvalue < .00001:
+    #if pvalue <= .00001:
     #    test_dicti = {}
     #    test_dicti['rs_id'] = 'rsid'
     #    test_dicti['ensamble_id'] = 'ensamble'
     #    test_dicti['ref_allele'] = 'A'
     #    test_dicti['alt_allele'] = 'T'
-     #   test_dicti['pvalue'] = pvalue
-     #   test_dicti['beta'] = op_full['par']['beta'][-1]
-      #  test_dicti['conc'] = np.atleast_1d(op_full['par']['conc'])
-      #  output_file = '/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data/temper_debug/' + model_version + '_'  + permutation_scheme + '_' + str(np.random.randint(10000000)) + '.png'
-      #  visualize_hit(full_data['ys'], full_data['ns'], full_data['gene_counts'], h_1, h_2, environmental_vars, library_size_correction_factors, test_dicti, output_file)
+    #    test_dicti['pvalue'] = pvalue
+    #    test_dicti['beta'] = op_full['par']['beta'][-1]
+    #    test_dicti['conc'] = np.atleast_1d(op_full['par']['conc'])
+    #    output_file = '/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data/temper_debug/' + model_version + '_'  + permutation_scheme + '_' + str(np.random.randint(10000000)) + '.png'
+    #    visualize_hit(full_data['ys'], full_data['ns'], full_data['gene_counts'], h_1, h_2, environmental_vars, library_size_correction_factors, test_dicti, output_file)
 
     return dict(pvalue=pvalue, loglr=loglr, fit_full=op_full, fit_null=op_null, loglike_null=op_null['value'], loglike_full=op_full['value'])
