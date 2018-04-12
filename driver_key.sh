@@ -96,8 +96,9 @@ correction_factor_file=$input_data_dir"library_size_correction_factor_"$environm
 
 
 # takes around 30 minutes to run
+if false; then
 sbatch learn_genome_wide_hyperparameters.sh $joint_test_input_file $correction_factor_file
-
+fi
 
 
 
@@ -109,16 +110,10 @@ sbatch learn_genome_wide_hyperparameters.sh $joint_test_input_file $correction_f
 # Parameters
 #################
 # Name of model. Current options are:
-### 1. 'joint_log_linear'
 ### 2. 'te_log_linear'
-### 3. 'as_log_linear'
-### 4. 'as_log_linear_fixed_sample_overdispersion'
-### 5. 'as_log_linear_fixed_overdispersion'
 ### 6. 'te_log_linear_quadratic_basis'
 ### 7. 'te_gaussian_process'
 ### 8. 'te_log_linear_cubic_control'
-### 9. 'te_log_linear_time_od'
-### 10. 'te_log_linear_time_od_offline'
 model_version="te_log_linear"
 
 # Optimization method
@@ -129,9 +124,13 @@ optimization_method="LBFGS"
 ### 2. "none"
 covariate_method="none"
 
+# Genotype_version
+### 1. "dosage"
+### 2. "round"
+genotype_version="round"
+
 # String used in output files to keep track of parameters used
-parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_biallelic_lines_"$min_num_biallelic_lines"_biallelic_samples_"$min_num_biallelic_samples"_biallelic_test_het_samples_"$min_num_het_test_variant_biallelic_samples"_optimizer_"$optimization_method"_covariate_method_"$covariate_method
-#parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_biallelic_lines_"$min_num_biallelic_lines"_biallelic_samples_"$min_num_biallelic_samples"_biallelic_test_het_samples_"$min_num_het_test_variant_biallelic_samples"_optimizer_"$optimization_method
+parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_optimizer_"$optimization_method"_genotype_"$genotype_version"_covariate_method_"$covariate_method
 
 
 
@@ -151,9 +150,10 @@ if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
     output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file $covariate_method $te_nb_time_step_od_parameter_file
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
+
 
 
 
@@ -168,9 +168,10 @@ if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
     output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file $covariate_method $te_nb_time_step_od_parameter_file
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
+
 
  
 
@@ -196,10 +197,9 @@ if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
     output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
-
 
 
 
@@ -215,41 +215,10 @@ if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files
     output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
 
-
-
-
-
-##########################
-# Run permutation independently in heterozygotes and homozygotes
-permute="True"
-permutation_scheme="shuffle_lines_ordered"
-##########################
-if false; then
-for job_number in $(seq 0 $(($total_jobs-1))); do 
-    # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file $covariate_method
-done
-fi
-
-
-
-##########################
-# Run permutation independently in heterozygotes and homozygotes
-permute="True"
-permutation_scheme="shuffle_hets"
-##########################
-if false; then
-for job_number in $(seq 0 $(($total_jobs-1))); do 
-    # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file
-done
-fi
 
 
 
