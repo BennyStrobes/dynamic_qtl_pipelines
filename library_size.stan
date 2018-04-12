@@ -12,7 +12,7 @@ parameters {
 }
 model {
   for (n in 1:N) {
-    for (p in 1:N) {
+    for (p in 1:P) {
       gene_counts[n,p] ~ neg_binomial_2( gene_means[p] * library_size[n], conc[p] ); 
     }
   }
