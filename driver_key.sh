@@ -180,13 +180,6 @@ fi
 
 
 
-
-
-
-
-
-
-
 ##########################
 # Run permutation for all samples
 permute="True"
@@ -223,31 +216,16 @@ fi
 
 
 
-
-
-
-min_num_biallelic_lines="2"
-# Minimum number of biallelic samples required for a site to be used
-min_num_biallelic_samples="15"
-# Minimum number of biallelic samples that have a heterozygous test variant required for a site to be used
-min_num_het_test_variant_biallelic_samples="6"
-
-
-
-
 permutation_scheme="shuffle_all"
+
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
+
+
+
 if false; then
-
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-permutation_scheme="shuffle_lines_ordered"
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
 
 
 permutation_scheme="sample_null"
@@ -259,13 +237,17 @@ permutation_scheme="shuffle_lines"
 sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
 
 
-permutation_scheme="shuffle_hets"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-permutation_scheme="shuffle_lines_ordered"
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
 
 
 Rscript merge_permutation_scheme_qq_plot.R $qtl_results_dir $qtl_visualization_dir
+
+
+
 fi
+
+
+
+
+
+
+

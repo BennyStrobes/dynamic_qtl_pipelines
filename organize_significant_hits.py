@@ -194,7 +194,18 @@ def extract_hits_vector_v2(all_hits_file):
     print(len(hits))
     return hits
 
+def extract_test_snp_dosage(test_infos):
+    dosages = []
+    # Loop through samples
+    for test_info in test_infos:
+        dosage = float(test_info[5])
+        dosages.append(dosage)
 
+        # Some basic error checking
+        if dosage < 0.0 or dosage > 2.0:
+            print('dosage assumption error!!')
+            pdb.set_trace()
+    return np.asarray(dosages)
 
 
 # Re-organize test_infos data so that it is in a better format
@@ -209,9 +220,10 @@ def reorganize_data(test_infos):
     gene_counts = extract_gene_counts(test_infos)
     # Extract genotype on allele_1 and allele_2 (h_1 and h_2)
     h_1, h_2 = extract_test_snp_haplotype(test_infos)
-    # Now extract allele specific read counts
-    ys, ns = extract_allele_specific_read_counts(h_1, h_2, test_infos)
-    return gene_counts, ys, ns, h_1, h_2
+    # Extract genotype dosage
+    dosage = extract_test_snp_dosage(test_infos)
+
+    return gene_counts, dosage, h_1, h_2
 
 
 
@@ -554,11 +566,8 @@ qtl_results_dir = sys.argv[2]
 joint_test_input_file = sys.argv[3]
 correction_factor_file = sys.argv[4]
 qtl_visualization_dir = sys.argv[5]
-min_num_biallelic_lines = int(sys.argv[6])
-min_num_biallelic_samples = int(sys.argv[7])
-min_num_het_test_variant_biallelic_samples = int(sys.argv[8])
-short_parameter_string = sys.argv[9]
-target_region_input_file = sys.argv[10]
+short_parameter_string = sys.argv[6]
+target_region_input_file = sys.argv[7]
 
 ############################################
 # Extract vector of length number of tests where each element is a tuple
@@ -608,40 +617,19 @@ for test_number in range(num_tests):
     # Re-organize test_infos data so that it is in a better format
     # Specifically, we will extract a vector of length == Number_of_samples of:
     ### 1. gene_counts
-    ### 2. allele_1 read counts (ys)
-    ### 3. Sum of allele_1 and allele_2 read counts (ns)
-    ### 4. Genotype on allele_1 (h_1)
-    ### 5. Genotype on allele_2 (h_2)
+    ### 2. dosage
+    ### 3. Genotype on allele_1 (h_1)
+    ### 4. Genotype on allele_2 (h_2)
+    gene_counts, dosage, h_1, h_2 = reorganize_data(test_infos)
 
 
-    gene_counts, ys, ns, h_1, h_2 = reorganize_data(test_infos)
-
-    # If the dimension of ys and ns (Ie. the number of heterozygous exonic sites) is too large, the algorithm will become prohibitively slow
-    # So we subset to the top $max_sites with the largest number of minor allele read counts
-    ys, ns = subset_allelic_count_matrices(ys, ns, cell_line_indices, min_num_biallelic_lines, min_num_biallelic_samples, min_num_het_test_variant_biallelic_samples, h_1, h_2)
-    
-
-    genotype = (h_1 + h_2).astype(str)
+    genotype = np.round(dosage).astype(int).astype(str)
     gene_counts = gene_counts/library_size_correction_factors
-    num_sites = ys.shape[1]
-    if num_sites > max_sites:
-        num_sites = max_sites
-    t.write(ensamble_id + '\t' + rs_id + '\t' + str(hit_dicti['pvalue']) + '\t' + str(hit_dicti['beta']) + '\t' + ';'.join(np.asarray(environmental_vars).astype(str)) + '\t')
-    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype) + '\t' + hit_dicti['conc'][0])
-    if num_sites > 10:
-        conc = hit_dicti['conc'].astype(float)
-        ys = ys[:, conc.argsort()[::-1]]
-        ns = ns[:, conc.argsort()[::-1]]
 
-    for site_num in range(max_sites):
-        if site_num + 1 > num_sites:
-            t.write('\tNA\tNA\tNA')
-        else:
-            a1_counts, a2_counts, environmental_vars_subset = get_allelic_counts(ys, ns, h_1, h_2, site_num, environmental_vars)
-            if len(a1_counts) == 0:
-                t.write('\tNA\tNA\tNA')
-            else:
-                t.write('\t' + ';'.join(a1_counts.astype(str)) + '\t' + ';'.join(a2_counts.astype(str)) + '\t' + ';'.join(environmental_vars_subset.astype(str)))
+
+    t.write(ensamble_id + '\t' + rs_id + '\t' + str(hit_dicti['pvalue']) + '\t' + str(hit_dicti['beta']) + '\t' + ';'.join(np.asarray(environmental_vars).astype(str)) + '\t')
+    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype))
+
     t.write('\n')
     t.flush()
 
