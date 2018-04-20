@@ -152,6 +152,19 @@ def extract_allele_specific_read_counts(h_1, h_2, test_infos):
     return ys.astype(int), ns.astype(int)
 
 
+def extract_test_snp_dosage(test_infos):
+    dosages = []
+    # Loop through samples
+    for test_info in test_infos:
+        dosage = float(test_info[5])
+        dosages.append(dosage)
+
+        # Some basic error checking
+        if dosage < 0.0 or dosage > 2.0:
+            print('dosage assumption error!!')
+            pdb.set_trace()
+    return np.asarray(dosages)
+
 # Re-organize test_infos data so that it is in a better format
 # Specifically, we will extract a vector of length == Number_of_samples of:
 ### 1. gene_counts
@@ -160,13 +173,13 @@ def extract_allele_specific_read_counts(h_1, h_2, test_infos):
 ### 4. Genotype on allele_1 (h_1)
 ### 5. Genotype on allele_2 (h_2)
 def reorganize_data(test_infos):
-    # First extract gene_counts from test_infos
-    gene_counts = extract_gene_counts(test_infos)
+    # Extract imputed dosage for this snp
+    #dosage = extract_test_snp_dosage(test_infos)
     # Extract genotype on allele_1 and allele_2 (h_1 and h_2)
     h_1, h_2 = extract_test_snp_haplotype(test_infos)
     # Now extract allele specific read counts
     ys, ns = extract_allele_specific_read_counts(h_1, h_2, test_infos)
-    return gene_counts, ys, ns, h_1, h_2
+    return ys, ns, h_1, h_2
 
 # For parrallelization purposes
 # start_test is test_number we start at. end_test is test_number we end at
@@ -303,7 +316,7 @@ def run_analysis(joint_test_input_file, model_version, output_stem, job_number, 
         ### 3. Sum of allele_1 and allele_2 read counts (ns)
         ### 4. Genotype on allele_1 (h_1)
         ### 5. Genotype on allele_2 (h_2)
-        gene_counts, ys, ns, h_1, h_2 = reorganize_data(test_infos)
+        ys, ns, h_1, h_2 = reorganize_data(test_infos)
 
         # If the dimension of ys and ns (Ie. the number of heterozygous exonic sites) is too large, the algorithm will become prohibitively slow
         # So we subset to the top $max_sites with the largest number of minor allele read counts
@@ -318,17 +331,12 @@ def run_analysis(joint_test_input_file, model_version, output_stem, job_number, 
             continue
         print(test_infos[0][2] + '\t' + test_infos[0][7])
         # Run dynamic qtl test
-        result = dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc)
+        result = dynamic_qtl(ys, ns, h_1, h_2, environmental_vars, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, covs, covariate_method)
         # Print results to output file
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         # t.write(test_infos[0][0] + '\t' +  test_infos[0][1] + '\t' + test_infos[0][2].split("'")[1] + '\t' + test_infos[0][3].split("'")[1] + '\t' + test_infos[0][4].split("'")[1] + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
-        if model_version == 'joint_log_linear' or model_version == 'as_log_linear':
+        if model_version == 'as_log_linear':
             t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(np.atleast_1d(result['fit_full']['par']['conc']).astype(str)) + '\n')
-        elif model_version == 'te_log_linear' or model_version == 'as_log_linear_fixed_overdispersion' or model_version == 'as_log_linear_fixed_sample_overdispersion' or model_version == 'te_log_linear_quadratic_basis' or model_version == 'te_log_linear_cubic_control' or model_version == 'te_log_linear_time_od_offline':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + 'NA' + '\n')
-        elif model_version == 'te_log_linear_time_od':
-            beta_string = ','.join(result['fit_full']['par']['beta'].astype(str)) + '/' + ','.join(result['fit_null']['par']['beta'].astype(str))
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + beta_string + '\t' + ','.join(result['fit_full']['par']['nb_conc'].astype(str)) + '/' + ','.join(result['fit_null']['par']['nb_conc'].astype(str)) + '\n')
         if np.mod(test_number, 10) == 0:
             t.flush()
     t.close()

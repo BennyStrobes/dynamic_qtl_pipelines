@@ -9,8 +9,8 @@ import pandas as pd
 
 
 # Load in data into pystan format for null model (not including interaction term)
-def load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, model_version, covs, covariate_method, te_nb_conc):
-    N = len(gene_counts)
+def load_in_null_data(ys, ns, h_1, h_2, environmental_vars, model_version, covs, covariate_method):
+    N = ys.shape[0]
     K = ys.shape[1]
     T = int(np.max(environmental_vars) + 1)
     intercept = np.ones((N, 1))
@@ -24,14 +24,7 @@ def load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library
         cov_mat = np.transpose(np.asmatrix(covs*environmental_vars))
         x_1 = np.hstack((intercept, env_mat, h_1_mat, cov_mat))
         x_2 = np.hstack((intercept, env_mat, h_2_mat, cov_mat))
-    # Change of basis functions
-    if model_version == 'te_log_linear_quadratic_basis':
-        x_1 = np.hstack((x_1, np.square(x_1[:,1])))
-        x_2 = np.hstack((x_2, np.square(x_2[:,1])))
-    elif model_version == 'te_log_linear_cubic_control':
-        x_1 = np.hstack((x_1, np.power(x_1[:,1], 2)))
-        x_2 = np.hstack((x_2, np.power(x_2[:,1], 2)))
-    data = dict(N=N, K=K, T=T, nb_conc=te_nb_conc, time_step=(environmental_vars.astype(int) + 1), P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, x_2=x_2, ys=ys, ns=ns, gene_counts=gene_counts, concShape=1.001, concRate=0.001, as_overdispersion_parameter=as_overdispersion_parameter, as_overdispersion_parameter_sample_specific=as_overdispersion_parameter_sample_specific)
+    data = dict(N=N, K=K, T=T, time_step=(environmental_vars.astype(int) + 1), P=x_1.shape[1], x_1=x_1, x_2=x_2, ys=ys, ns=ns, concShape=1.001, concRate=0.001)
     return data
 
 
@@ -245,8 +238,8 @@ def draw_samples_from_fitted_null_te_model(nb_conc, beta, null_data):
     return np.asarray(sample_gene_counts).astype(int)
 
 # Load in data into pystan format for full model (including interaction term)
-def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices,optimization_method, model_version, as_overdispersion_parameter,as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc):
-    N = len(gene_counts)
+def load_in_full_data(ys, ns, h_1, h_2, environmental_vars, permute, permutation_scheme, null_data, sm, cell_line_indices,optimization_method, model_version, covs, covariate_method):
+    N = ys.shape[0]
     K = ys.shape[1]
     T = int(np.max(environmental_vars) + 1)
     intercept = np.ones((N, 1))
@@ -303,47 +296,18 @@ def load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library
         x_1 = np.hstack((intercept, env_mat, h_1_mat, cov_mat, h_1_interaction_mat))
         x_2 = np.hstack((intercept, env_mat, h_2_mat, cov_mat, h_2_interaction_mat))
     # Change of basis functions
-    if model_version == 'te_log_linear_quadratic_basis':
-        x_1 = np.hstack((x_1[:, 0:3], np.square(x_1[:, 1]), x_1[:, -1], np.square(x_1[:, -1])))
-        x_2 = np.hstack((x_2[:, 0:3], np.square(x_2[:, 1]), x_2[:, -1], np.square(x_2[:, -1])))
-    elif model_version == 'te_log_linear_cubic_control':
-        x_1 = np.hstack((null_data['x_1'], h_1_interaction_mat))
-        x_2 = np.hstack((null_data['x_2'], h_2_interaction_mat))
-    full_data = dict(N=N, nb_conc=te_nb_conc, K=K, T=T, P=x_1.shape[1], time_step=(environmental_vars.astype(int) + 1), library_size=library_size_correction_factors, x_1=x_1, x_2=x_2, ys=ys, ns=ns, gene_counts=gene_counts, concShape=1.001, concRate=0.001, as_overdispersion_parameter=as_overdispersion_parameter, as_overdispersion_parameter_sample_specific=as_overdispersion_parameter_sample_specific)
+    full_data = dict(N=N, K=K, T=T, P=x_1.shape[1], time_step=(environmental_vars.astype(int) + 1), x_1=x_1, x_2=x_2, ys=ys, ns=ns, concShape=1.001, concRate=0.001)
     return full_data, null_data
 
 
-def quadratic_basis_initialize_optimization(full_data, seed, algorithm, sm):
-    temp_x_1 = np.hstack((full_data['x_1'][:, 0:3], full_data['x_1'][:, 4]))
-    temp_x_2 = np.hstack((full_data['x_2'][:, 0:3], full_data['x_2'][:, 4]))
-    temp_data = dict(x_1=temp_x_1, x_2=temp_x_2, P=temp_x_1.shape[1], N=full_data['N'], K=full_data['K'], library_size=full_data['library_size'], ys=full_data['ys'], ns=full_data['ns'], gene_counts=full_data['gene_counts'], concShape=full_data['concShape'], concRate=full_data['concRate'], as_overdispersion_parameter=full_data['as_overdispersion_parameter'], as_overdispersion_parameter_sample_specific=full_data['as_overdispersion_parameter_sample_specific'])
-    op_temp = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
-    return op_temp
-
-def cubic_control_initialize_optimization(full_data, seed, algorithm, sm):
-    temp_x_1 = full_data['x_1'][:,0:3]
-    temp_x_2 = full_data['x_2'][:,0:3]
-    temp_data = dict(x_1=temp_x_1, x_2=temp_x_2, P=temp_x_1.shape[1], N=full_data['N'], K=full_data['K'], library_size=full_data['library_size'], ys=full_data['ys'], ns=full_data['ns'], gene_counts=full_data['gene_counts'], concShape=full_data['concShape'], concRate=full_data['concRate'], as_overdispersion_parameter=full_data['as_overdispersion_parameter'], as_overdispersion_parameter_sample_specific=full_data['as_overdispersion_parameter_sample_specific'])
-    op_temp = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
-    return op_temp
 
 
 def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_version):
     # Use same seed for null and alternate models
     seed = np.random.randint(10000000) + 1
 
-    if model_version == 'te_log_linear_quadratic_basis':
-        # First optimize model on simpler version first. And use simpler model as initialization
-        op_temp = quadratic_basis_initialize_optimization(full_data, seed, algorithm, sm)
-        init_full = dict(nb_conc=np.atleast_1d(op_temp['par']['nb_conc'])[0], beta = np.asarray([op_temp['par']['beta'][0], op_temp['par']['beta'][1], op_temp['par']['beta'][2], 0.0, op_temp['par']['beta'][3], 0]))
-        op_full = sm.optimizing(data=full_data, as_vector=False, init=init_full, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
-    elif model_version == 'te_log_linear_cubic_control':
-        op_temp = cubic_control_initialize_optimization(full_data, seed, algorithm, sm)
-        init_full = dict(nb_conc=np.atleast_1d(op_temp['par']['nb_conc'])[0], beta = np.asarray([op_temp['par']['beta'][0], op_temp['par']['beta'][1], op_temp['par']['beta'][2], 0.0, 0.0]))
-        op_full = sm.optimizing(data=full_data, as_vector=False, init=init_full, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
-    else:
-        # Run pystan gradient based optimization on full model
-        op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    # Run pystan gradient based optimization on full model
+    op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
 
     # Initialize null model with parameters defining the full model
     # initialization for joint model
@@ -378,171 +342,21 @@ def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_v
             loglr = op_full['value'] - op_null['value']
     return op_null, op_full, loglr
 
-# PLOT!
-def visualize_hit(ys, ns, gene_counts, h_1, h_2, environmental_vars, library_size_correction_factors, test_dicti, output_file):
-    plt.clf()
-    # Plot to visualize total expression changes over time as a function of genotype
-    fig = plt.figure(figsize=(40, 20))
-
-    # call regplot on each axes
-    ax1 = plt.subplot2grid((2, 4), (0, 0), colspan=4)
-    ax2 = plt.subplot2grid((2, 4), (1, 0))
-    ax3 = plt.subplot2grid((2, 4), (1, 1))
-    ax4 = plt.subplot2grid((2, 4), (1, 2))
-    ax5 = plt.subplot2grid((2, 4), (1, 3))
-    #sns.regplot(x=idx, y=df['x'], ax=ax1)
-    #sns.regplot(x=idx, y=df['y'], ax=ax2)
-    num_sites = ys.shape[1]
-    if num_sites > 4:
-        num_sites = 4
-
-    gene_total_plot = gene_total_plotter(gene_counts, h_1+h_2, environmental_vars, test_dicti['rs_id'], test_dicti['ensamble_id'], test_dicti['ref_allele'], test_dicti['alt_allele'], test_dicti['pvalue'], test_dicti['beta'], library_size_correction_factors,ax1)
-    #fig.savefig(output_file)
-    num_sites = ys.shape[1]
-    if num_sites > 4:
-        num_sites = 4
-    for exonic_site_num in np.arange(num_sites):
-        if exonic_site_num == 0:
-            axy = ax2
-        elif exonic_site_num == 1:
-            axy = ax3
-        elif exonic_site_num == 2:
-            axy = ax4
-        elif exonic_site_num == 3:
-            axy = ax5
-        allelic_imbalence_plot = allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, test_dicti['rs_id'], test_dicti['ensamble_id'], test_dicti['pvalue'], test_dicti['beta'], test_dicti['conc'].astype(float),axy, exonic_site_num)
-    plt.tight_layout()
-    fig.savefig(output_file)
 
 
-# Convert from dosage vector to vector of genotyeps
-def dosage_to_genotype(dosage, ref_allele, alt_allele):
-    converter = {}
-    #converter[0] = ref_allele + ref_allele
-    #converter[1] = ref_allele + alt_allele
-    #converter[2] = alt_allele + alt_allele
-    converter[0] = "0"
-    converter[1] = "1"
-    converter[2] = "2"
-
-
-    genotype = []
-    for dos in dosage:
-        genotype.append(converter[dos])
-    return np.asarray(genotype)
-
-# Plot to visualize total expression changes over time as a function of genotype
-def gene_total_plotter(gene_counts, dosage, environmental_vars, rs_id, ensamble_id, ref_allele, alt_allele, pvalue, beta, library_size_correction_factors,ax1):
-    # Convert from dosage vector to vector of genotyeps
-    genotype = dosage_to_genotype(dosage, ref_allele, alt_allele)
-
-    gene_counts = (gene_counts/library_size_correction_factors)*np.mean(library_size_correction_factors)
-
-    df = pd.DataFrame({rs_id: genotype, 'time_step': environmental_vars.astype(int), 'gene_counts': np.log(gene_counts)})
-    ax = sns.boxplot(x="time_step", y="gene_counts", hue=rs_id, data=df, palette="Set3",width=.7,ax=ax1)
-    plt.xlabel('Time Step')
-    plt.ylabel('log(counts)')
-    ax1.set_title(ensamble_id + ' / pvalue = ' + str(pvalue) + ' / beta = ' + str(beta))
-    #sns.despine(offset=1, trim=True)
-    return ax
-
-def allelic_imbalence_plotter(h_1, h_2, environmental_vars, ys, ns, rs_id, ensamble_id, pvalue, beta, conc,axy, exonic_site_num):
-    if ys.shape[1] != len(conc):
-        print('fatal errooror')
-        pdb.set_trace()
-    # Order sites by smallest variance to largest
-    ys = ys[:, conc.argsort()[::-1]]
-    ns = ns[:, conc.argsort()[::-1]]
-    # Extract allelic fractions at each site
-    time_steps = []
-    allelic_fractions = []
-    cell_lines_arr = []
-    identifiers = []
-    exonic_sites = []
-    depths = []
-    num_exonic_sites = ys.shape[1]
-    num_samples = len(environmental_vars)
-    for sample_num in np.arange(num_samples):
-        if h_1[sample_num] == h_2[sample_num]:  # homozygous variant
-            continue
-        if ns[sample_num, exonic_site_num] <= 2:
-            continue
-        if h_1[sample_num] == 0:
-            allelic_fraction = 1.0 - float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num]
-        elif h_2[sample_num] == 0:
-            allelic_fraction = (float(ys[sample_num, exonic_site_num])/ns[sample_num, exonic_site_num])
-        else:
-            print('eroroororo')
-        depths.append(ns[sample_num,exonic_site_num])
-        allelic_fractions.append(allelic_fraction)
-        #allelic_fractions.append(abs(allelic_fraction-.5))
-        time_steps.append(float(environmental_vars[sample_num]))
-
-    # PLOT!
-    df = pd.DataFrame({'time_step': np.asarray(time_steps).astype(int),'read_depth':depths,  'allelic_fraction': allelic_fractions})
-
-    #ax = sns.pointplot(x="time_step", y="allelic_fraction", hue="identifiers", data=df)
-    #ax = sns.regplot(x="time_step", y="allelic_fraction", data=df)
-    ax = sns.regplot(data=df,x="time_step", y="allelic_fraction",ci=None, ax=axy)
-    ax.set_title("Exonic site = " + str(exonic_site_num) + " / conc = " + str(conc[conc.argsort()[::-1]][exonic_site_num]))
-    plt.ylim(ymax=1) # adjust the max leaving min unchanged
-    plt.ylim(ymin=0)
-    #ax = sns.boxplot(x="time_step", y="allelic_fraction", hue=exonic_sites,data=df, palette="Set3",width=.7)
-    #plt.xlabel('Time Step')
-    #plt.ylabel('Allelic fraction')
-    #plt.title(ensamble_id + ' / pvalue = ' + str(pvalue) + ' / beta = ' + str(beta))
-    #sns.despine(offset=1, trim=True)
-    #iris = sns.load_dataset("iris")
-    # Plot tip as a function of toal bill across days
-    # = sns.regplot(x="sepal_length", y="sepal_width", data=iris)
-    return ax
-
-def run_gp_regression(y, x):
-    np.random.seed(2)
-    dim = x.shape[1]
-    kernel = GPy.kern.RBF(1, active_dims=[0])
-    for i in range(1, dim):
-        kernel = kernel + GPy.kern.RBF(1,active_dims=[i])
-    kernel = kernel + GPy.kern.White(dim) + GPy.kern.Bias(input_dim=dim)
-    #kernel = GPy.kern.RBF(dim)
-    #kernel = GPy.kern.RBF(input_dim=dim) #+ GPy.kern.White(dim) #+ GPy.kern.Bias(input_dim=dim)
-    poisson_likelihood = GPy.likelihoods.Poisson()
-    laplace_inf = GPy.inference.latent_function_inference.Laplace()
-    m = GPy.core.GP(X=x, Y=y, likelihood=poisson_likelihood, inference_method=laplace_inf, kernel=kernel)
-    m.randomize()
-    m.optimize()
-    return m
-
-
-def dynamic_qtl(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc):
+def dynamic_qtl(ys, ns, h_1, h_2, environmental_vars, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, covs, covariate_method):
     # Load in correct model
-    if model_version == 'joint_log_linear':
-        #sm = pystan.StanModel(file='joint_log_linear.stan')
-        #f = open('joint_log_linear.pkl','wb')
+    if model_version == 'as_log_linear':
+        #sm = pystan.StanModel(file='as_log_linear.stan')
+        #f = open('as_log_linear.pkl','wb')
         #pickle.dump(sm, f)
-        sm = pickle.load(open('joint_log_linear.pkl', 'rb'))
-    elif model_version == 'te_log_linear':
-        sm = pickle.load(open('te_log_linear.pkl', 'rb'))
-    elif model_version == 'as_log_linear':
+        #f.close()
         sm = pickle.load(open('as_log_linear.pkl', 'rb'))
-    elif model_version == 'as_log_linear_fixed_overdispersion':
-        sm = pickle.load(open('as_log_linear_fixed_overdispersion.pkl', 'rb'))
-    elif model_version == 'as_log_linear_fixed_sample_overdispersion':
-        sm = pickle.load(open('as_log_linear_fixed_sample_overdispersion.pkl', 'rb'))
-    elif model_version == 'te_log_linear_quadratic_basis':
-        sm = pickle.load(open('te_log_linear.pkl', 'rb'))
-    elif model_version == 'te_gaussian_process':
-        sm = 'fake'
-    elif model_version == 'te_log_linear_cubic_control':
-        sm = pickle.load(open('te_log_linear.pkl', 'rb'))
-    elif model_version == 'te_log_linear_time_od':
-        sm = pickle.load(open('te_log_linear_time_od.pkl', 'rb'))
-    elif model_version == 'te_log_linear_time_od_offline':
-        sm = pickle.load(open('te_log_linear_time_od_offline.pkl', 'rb'))
+
 
     # Load in data into pystan format
-    null_data = load_in_null_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, model_version, covs, covariate_method, te_nb_conc)
-    full_data, null_data = load_in_full_data(gene_counts, ys, ns, h_1, h_2, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices, optimization_method, model_version, as_overdispersion_parameter, as_overdispersion_parameter_sample_specific, covs, covariate_method, te_nb_conc)
+    null_data = load_in_null_data(ys, ns, h_1, h_2, environmental_vars, model_version, covs, covariate_method)
+    full_data, null_data = load_in_full_data(ys, ns, h_1, h_2, environmental_vars, permute, permutation_scheme, null_data, sm, cell_line_indices, optimization_method, model_version, covs, covariate_method)
     # Calculate the degrees of freedom of LRT
     dof = full_data['P'] - null_data['P']
     # Run test by placing in try catch loop

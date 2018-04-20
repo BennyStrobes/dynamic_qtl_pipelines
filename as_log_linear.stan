@@ -2,12 +2,10 @@ data {
   int<lower=0> N; # Number of samples
   int<lower=0> P; # Number of covariates
   int<lower=0> K; # Number of heterozygous, exonic snps
-  real library_size[N]; 
   matrix[N,P] x_1; 
   matrix[N,P] x_2; 
   int<lower=0> ys[N,K];
   int<lower=0> ns[N,K];
-  int<lower=0> gene_counts[N]; 
   real<lower=0> concShape; 
   real<lower=0> concRate;  
 }
