@@ -80,7 +80,7 @@ def null_model_optimization_shell(null_data, sm, optimization_method):
             # Use same seed for null and alternate models
             seed = np.random.randint(10000000) + 1
             # Run dynamic qtls
-            op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=optimization_method, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+            op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=optimization_method, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
             working = False
             # Make sure log likelihood is not nan
             if np.isnan(op_null['value']):
@@ -94,7 +94,7 @@ def null_model_optimization_shell(null_data, sm, optimization_method):
             if iteration > 10:
                 print('LBFGS ran')
                 seed = np.random.randint(10000000) + 1
-                op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm='LBFGS', tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+                op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm='LBFGS', tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
     return op_null
 
 # Sample total reads from negative binomial distribution
@@ -180,19 +180,8 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
     return full_data, null_data
 
 
-def quadratic_basis_initialize_optimization(full_data, seed, algorithm, sm):
-    temp_x_1 = np.hstack((full_data['x_1'][:, 0:3], full_data['x_1'][:, 4]))
-    temp_x_2 = np.hstack((full_data['x_2'][:, 0:3], full_data['x_2'][:, 4]))
-    temp_data = dict(x_1=temp_x_1, x_2=temp_x_2, P=temp_x_1.shape[1], N=full_data['N'], K=full_data['K'], library_size=full_data['library_size'], ys=full_data['ys'], ns=full_data['ns'], gene_counts=full_data['gene_counts'], concShape=full_data['concShape'], concRate=full_data['concRate'], as_overdispersion_parameter=full_data['as_overdispersion_parameter'], as_overdispersion_parameter_sample_specific=full_data['as_overdispersion_parameter_sample_specific'])
-    op_temp = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
-    return op_temp
 
-def cubic_control_initialize_optimization(full_data, seed, algorithm, sm):
-    temp_x_1 = full_data['x_1'][:,0:3]
-    temp_x_2 = full_data['x_2'][:,0:3]
-    temp_data = dict(x_1=temp_x_1, x_2=temp_x_2, P=temp_x_1.shape[1], N=full_data['N'], K=full_data['K'], library_size=full_data['library_size'], ys=full_data['ys'], ns=full_data['ns'], gene_counts=full_data['gene_counts'], concShape=full_data['concShape'], concRate=full_data['concRate'], as_overdispersion_parameter=full_data['as_overdispersion_parameter'], as_overdispersion_parameter_sample_specific=full_data['as_overdispersion_parameter_sample_specific'])
-    op_temp = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
-    return op_temp
+
 
 
 def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_version):
@@ -200,7 +189,7 @@ def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_v
     seed = np.random.randint(10000000) + 1
 
     # Run pystan gradient based optimization on full model
-    op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+    op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
 
     # Initialize null model with parameters defining the full model
     # initialization for joint model
