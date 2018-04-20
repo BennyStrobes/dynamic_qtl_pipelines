@@ -96,17 +96,8 @@ min_num_het_test_variant_biallelic_samples="10"
 # Parameters
 #################
 # Name of model. Current options are:
-### 1. 'joint_log_linear'
-### 2. 'te_log_linear'
-### 3. 'as_log_linear'
-### 4. 'as_log_linear_fixed_sample_overdispersion'
-### 5. 'as_log_linear_fixed_overdispersion'
-### 6. 'te_log_linear_quadratic_basis'
-### 7. 'te_gaussian_process'
-### 8. 'te_log_linear_cubic_control'
-### 9. 'te_log_linear_time_od'
-### 10. 'te_log_linear_time_od_offline'
-model_version="te_log_linear"
+### 1. 'as_log_linear'
+model_version="as_log_linear"
 
 # Optimization method
 optimization_method="LBFGS"
@@ -118,7 +109,6 @@ covariate_method="none"
 
 # String used in output files to keep track of parameters used
 parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_biallelic_lines_"$min_num_biallelic_lines"_biallelic_samples_"$min_num_biallelic_samples"_biallelic_test_het_samples_"$min_num_het_test_variant_biallelic_samples"_optimizer_"$optimization_method"_covariate_method_"$covariate_method
-#parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_biallelic_lines_"$min_num_biallelic_lines"_biallelic_samples_"$min_num_biallelic_samples"_biallelic_test_het_samples_"$min_num_het_test_variant_biallelic_samples"_optimizer_"$optimization_method
 
 
 
@@ -134,6 +124,11 @@ total_jobs="50"
 permute="False"
 permutation_scheme="none"
 #########################
+job_number="0"
+output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+sh dynamic_qtl_shell.sh $joint_test_input_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $covariate_method
+
+
 if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
     # Stem of all output files

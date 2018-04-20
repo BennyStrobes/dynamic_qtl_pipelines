@@ -41,22 +41,6 @@ def parse_joint_test_input_file(joint_test_input_file):
         filehandles.append(f)
     return sample_ids, filehandles, np.asarray(environmental_vars), np.asarray(cov)
 
-# Parse through correction_factor_file to extract ordered list of:
-## 1. library_size_correction_factors
-def parse_correction_factor_file(correction_factor_file):
-    # Initialize output array
-    correction_factors = []
-    head_count = 0  # Used to skip header
-    f = open(correction_factor_file)
-    for line in f:
-        line = line.rstrip()
-        data = line.split()
-        if head_count == 0:
-            head_count = head_count + 1
-            continue
-        correction_factor = float(data[1])
-        correction_factors.append(correction_factor)
-    return np.asarray(correction_factors)
 
 def extract_number_of_tests(joint_test_input_file):
     # Extract the cht input filename for one sample
@@ -281,26 +265,10 @@ def subset_allelic_count_matrices(ys, ns, cell_line_indices, min_num_biallelic_l
 
     return ys_filtered, ns_filtered
 
-# Extract gene-specific NB overdispersion parameters 
-# te_nb_conc_dicti is a dictionary with keys that are gene names and values that are vectors of length num_time_steps
-def extract_te_nb_conc_dicti(te_nb_time_step_od_parameter_file):
-    te_nb_conc = np.loadtxt(te_nb_time_step_od_parameter_file,delimiter='\t', dtype=str)
-    dicti = {}
-    num_genes = te_nb_conc.shape[0]
-    for gene_index in range(num_genes):
-        gene_id = te_nb_conc[gene_index, 0]
-        conc = te_nb_conc[gene_index,1:].astype(float)
-        dicti[gene_id] = conc
-    return dicti
-
-# Get nb_concentration vector corresponding to the current gene
-def extract_te_nb_conc_from_dicti(te_nb_conc_dicti, test_infos):
-    gene_identifier = test_infos[0] + '_' + test_infos[7] + '_' + test_infos[8]
-    return te_nb_conc_dicti[gene_identifier]
 
 
 # Main Driver
-def run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, optimization_method, permutation_scheme, min_num_biallelic_lines, min_num_biallelic_samples, min_num_het_test_variant_biallelic_samples, as_overdispersion_parameter_file, as_overdispersion_parameter_sample_specific_file, covariate_method, te_nb_time_step_od_parameter_file):
+def run_analysis(joint_test_input_file, model_version, output_stem, job_number, total_jobs, permute, optimization_method, permutation_scheme, min_num_biallelic_lines, min_num_biallelic_samples, min_num_het_test_variant_biallelic_samples, covariate_method):
     # Determine the number of tests
     num_tests = extract_number_of_tests(joint_test_input_file)
     # For parrallelization purposes
@@ -313,30 +281,14 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
     ## 4. library size correction factors
     sample_ids, filehandles, environmental_vars, covs = parse_joint_test_input_file(joint_test_input_file)
 
-    library_size_correction_factors = parse_correction_factor_file(correction_factor_file)
-
     # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
     cell_line_indices = get_cell_line_indices(joint_test_input_file)
-
-    # Load in overdispersion parameters that are learned offline
-    #as_overdispersion_parameter = np.atleast_1d(np.loadtxt(as_overdispersion_parameter_file))[0]
-    #as_overdispersion_parameter_sample_specific = np.loadtxt(as_overdispersion_parameter_sample_specific_file, delimiter='\t')
-
-    # Extract gene-specific NB overdispersion parameters 
-    # te_nb_conc_dicti is a dictionary with keys that are gene names and values that are vectors of length num_time_steps
-    te_nb_conc_dicti = extract_te_nb_conc_dicti(te_nb_time_step_od_parameter_file)
-
-    as_overdispersion_parameter=0
-    as_overdispersion_parameter_sample_specific=0
 
     t = open(output_stem + 'dynamic_qtl_results.txt', 'w')
     # Loop through each of the tests
     for test_number in range(num_tests):
         # Extract one line from each file handle and put into ordered list
         test_infos = extract_test_info_from_filehandles(filehandles)
-        
-        # Get nb_concentration vector corresponding to the current gene
-        te_nb_conc = extract_te_nb_conc_from_dicti(te_nb_conc_dicti, test_infos[0])
 
         # Only perform tests corresponding to this job number (for parrallelization purposes)
         if test_number < start_test or test_number >= end_test:
@@ -386,22 +338,18 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
 # Command line args
 #######################
 joint_test_input_file = sys.argv[1]  # Ordered list of samples and their corresponding cht input files
-correction_factor_file = sys.argv[2]  # Ordered list of samples (same order as joint_test_input_file) that contains the library_size_correction_factor for each model_version
-model_version = sys.argv[3]  # Name of glm that we are going to use
-output_stem = sys.argv[4]  # Stem of output file
-permute = sys.argv[5]  # Binary (True/False) variable on whehter to permute the data or not
-job_number = int(sys.argv[6])
-total_jobs = int(sys.argv[7])
-optimization_method = sys.argv[8]  # Technique to fit the GLM
-permutation_scheme = sys.argv[9]  # How to permute NUll data (only applies if permute == 'True')
-min_num_biallelic_lines = int(sys.argv[10])  # Minimum number of cell lines that have at least one biallelic sample required for a site to be used
-min_num_biallelic_samples = int(sys.argv[11])  #  Minimum number of biallelic samples required for a site to be used
-min_num_het_test_variant_biallelic_samples = int(sys.argv[12])  # Minimum number of biallelic samples that have a heterozygous test variant required for a site to be used
-as_overdispersion_parameter_file = sys.argv[13]
-as_overdispersion_parameter_sample_specific_file = sys.argv[14]
-covariate_method = sys.argv[15]
-te_nb_time_step_od_parameter_file = sys.argv[16]
+model_version = sys.argv[2]  # Name of glm that we are going to use
+output_stem = sys.argv[3]  # Stem of output file
+permute = sys.argv[4]  # Binary (True/False) variable on whehter to permute the data or not
+job_number = int(sys.argv[5])
+total_jobs = int(sys.argv[6])
+optimization_method = sys.argv[7]  # Technique to fit the GLM
+permutation_scheme = sys.argv[8]  # How to permute NUll data (only applies if permute == 'True')
+min_num_biallelic_lines = int(sys.argv[9])  # Minimum number of cell lines that have at least one biallelic sample required for a site to be used
+min_num_biallelic_samples = int(sys.argv[10])  #  Minimum number of biallelic samples required for a site to be used
+min_num_het_test_variant_biallelic_samples = int(sys.argv[11])  # Minimum number of biallelic samples that have a heterozygous test variant required for a site to be used
+covariate_method = sys.argv[12]
 
 
 # Main Driver
-run_analysis(joint_test_input_file, correction_factor_file, model_version, output_stem, job_number, total_jobs, permute, optimization_method, permutation_scheme, min_num_biallelic_lines, min_num_biallelic_samples, min_num_het_test_variant_biallelic_samples, as_overdispersion_parameter_file, as_overdispersion_parameter_sample_specific_file, covariate_method, te_nb_time_step_od_parameter_file)
+run_analysis(joint_test_input_file, model_version, output_stem, job_number, total_jobs, permute, optimization_method, permutation_scheme, min_num_biallelic_lines, min_num_biallelic_samples, min_num_het_test_variant_biallelic_samples, covariate_method)
