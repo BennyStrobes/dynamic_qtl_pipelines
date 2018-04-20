@@ -35,7 +35,7 @@ total_expression_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess/
 ###############################################################################
 
 # Root directory for this of all ipsc data based results
-output_root="/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data/"
+output_root="/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data_as/"
 
 # Directory containing necessary input files to qtl tests
 input_data_dir=$output_root"input_data/"
@@ -69,14 +69,7 @@ qtl_visualization_dir=$output_root"qtl_visualization/"
 # Takes less than a minute to run
 # $environmental_variable is a parameter that describes how we parameterize the environmental variable. So far, this is done with:
 ### 1. 'time_steps': raw time format
-### 2. 'pseudotime_predictions_3': pseudotime predictions (from Nirmal) using hmm with 3 latent variables
-### 3. 'pseudotime_predictions_4': pseudotime predictions (from Nirmal) using hmm with 4 latent variables
-### 4. 'pseudotime_predictions_5': pseudotime predictions (from Nirmal) using hmm with 5 latent variables
-### 5. 'uniform_4': 
-### 6. 'median_pseudotime_4': 1 sample from each cell_line pseudotime state
-### 7. 'time_steps_max_8': raw time format, but do not include any samples where time is greater than 8
-### 8. 'time_steps_max_9': raw time format, but do not include any samples where time is greater than 9
-environmental_variable_form="time_steps_max_8"
+environmental_variable_form="time_steps"
 joint_test_input_file=$input_data_dir"joint_test_input_file_"$environmental_variable_form".txt"
 if false; then
 python create_joint_test_input_file.py $cht_input_file_dir $joint_test_input_file $environmental_variable_form $pseudotime_predictions_3_file $pseudotime_predictions_4_file $pseudotime_predictions_5_file $total_expression_file
@@ -86,37 +79,18 @@ fi
 
 
 
-##########################################
-# Step 2: Learn genome wide hyperparameters
-##########################################
-# Minimum number of cell lines that have at least one biallelic sample required for a site to be used
-min_num_biallelic_lines="2"
-# Minimum number of biallelic samples required for a site to be used
-min_num_biallelic_samples="15"
-# Minimum number of biallelic samples that have a heterozygous test variant required for a site to be used
-min_num_het_test_variant_biallelic_samples="6"
-
-# File to contain learned library size correction factors for each sample (samples ordered same as $joint_test_input_file)
-correction_factor_file=$input_data_dir"library_size_correction_factor_"$environmental_variable_form".txt"
-# File to contain learned allele specific overdispersion parameters 
-as_overdispersion_parameter_file=$input_data_dir"as_overdispersion_parameter_biallelic_lines_"$min_num_biallelic_lines"_biallelic_samples_"$min_num_biallelic_samples"_biallelic_test_het_samples_"$min_num_het_test_variant_biallelic_samples".txt"
-# File to contain learned allele specific overdispersion parameters (one for each sample)
-as_overdispersion_parameter_sample_specific_file=$input_data_dir"as_overdispersion_parameter_sample_specific_biallelic_lines_"$min_num_biallelic_lines"_biallelic_samples_"$min_num_biallelic_samples"_biallelic_test_het_samples_"$min_num_het_test_variant_biallelic_samples".txt"
-# File containing time step speciifc Negative binomial overdispersion parameters
-te_nb_time_step_od_parameter_file=$input_data_dir"nb_time_step_od_parameter.txt"
-
-variance_output_file=$input_data_dir"te_variance.txt"
-
-# takes around 30 minutes to run
-if false; then
-sbatch learn_genome_wide_hyperparameters.sh $joint_test_input_file $correction_factor_file $as_overdispersion_parameter_file $as_overdispersion_parameter_sample_specific_file $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples $te_nb_time_step_od_parameter_file $variance_output_file
-fi
-
-
 
 ##########################################
 # Step 3: Run dynamic QTL Model
 ##########################################
+# Minimum number of cell lines that have at least one biallelic sample required for a site to be used
+min_num_biallelic_lines="5"
+# Minimum number of biallelic samples required for a site to be used
+min_num_biallelic_samples="25"
+# Minimum number of biallelic samples that have a heterozygous test variant required for a site to be used
+min_num_het_test_variant_biallelic_samples="10"
+
+
 
 #################
 # Parameters
@@ -277,12 +251,12 @@ min_num_biallelic_samples="15"
 min_num_het_test_variant_biallelic_samples="6"
 
 
+if false; then
 
 
 permutation_scheme="shuffle_all"
 sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
 
-if false; then
 
 
 permutation_scheme="shuffle_lines_ordered"
