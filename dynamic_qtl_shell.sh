@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=5:00:00 --partition=broadwl --mem=15GB
+#SBATCH --time=20:00:00 --partition=broadwl --mem=10GB
 module unload python
 module load Anaconda3
 

@@ -88,7 +88,7 @@ def null_model_optimization_shell(null_data, sm, optimization_method):
             # Use same seed for null and alternate models
             seed = np.random.randint(10000000) + 1
             # Run dynamic qtls
-            op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=optimization_method, tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+            op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=optimization_method, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
             working = False
             # Make sure log likelihood is not nan
             if np.isnan(op_null['value']):
@@ -102,7 +102,7 @@ def null_model_optimization_shell(null_data, sm, optimization_method):
             if iteration > 10:
                 print('LBFGS ran')
                 seed = np.random.randint(10000000) + 1
-                op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm='LBFGS', tol_obj=1e-15, tol_rel_obj=1e1, tol_grad=1e-11, tol_rel_grad=1e4, tol_param=1e-12)
+                op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm='LBFGS', tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
     return op_null
 
 # Sample total reads from negative binomial distribution
@@ -180,11 +180,7 @@ def sample_allelic_counts_from_beta_binomial_distribution(allelic_p, conc, ys, n
 
     return sample_ys, sample_ns 
 
-
-
-
-# Sample read counts from fitted null model
-def draw_samples_from_fitted_null_joint_model(conc, nb_conc, beta, null_data):
+def draw_samples_from_fitted_null_as_model(conc, beta, null_data):
     beta_mat = np.transpose(np.asmatrix(beta))
     # Predict relative log number of reads on allele 1
     xb_1 = np.dot(null_data['x_1'], beta_mat)
@@ -197,6 +193,7 @@ def draw_samples_from_fitted_null_joint_model(conc, nb_conc, beta, null_data):
     # Predicted allelic fraction for each sample
     allelic_p = y_1/(y_1 + y_2)
 
+    # ERROR CHECKING!!
     if np.sum(np.isnan(allelic_p)) > 0:
         print('nan p')
         print(allelic_p)
@@ -206,36 +203,11 @@ def draw_samples_from_fitted_null_joint_model(conc, nb_conc, beta, null_data):
         print(null_data['x_1'])
         print(null_data['x_2'])
 
-    # Sample total reads from negative binomial distribution
-    sample_gene_counts = sample_gene_counts_from_negative_binomial_distribution(y_1, y_2, nb_conc, null_data['library_size'])
-
-    # No heterozygous sites exist
-    if null_data['ys'].shape[1] == 0:
-        sample_ys = null_data['ys']
-        sample_ns = null_data['ns']
-    else:  # heterozygous sites exist
-        # Sample allelic counts from beta-binomial distribution
-        sample_ys, sample_ns = sample_allelic_counts_from_beta_binomial_distribution(allelic_p, conc, null_data['ys'], null_data['ns'])
-
-    return np.asarray(sample_gene_counts).astype(int), sample_ys.astype(int), sample_ns.astype(int)
+    sample_ys, sample_ns = sample_allelic_counts_from_beta_binomial_distribution(allelic_p, conc, null_data['ys'], null_data['ns'])
+    return sample_ys.astype(int), sample_ns.astype(int)
 
 
-# Sample read counts from fitted null model
-def draw_samples_from_fitted_null_te_model(nb_conc, beta, null_data):
-    beta_mat = np.transpose(np.asmatrix(beta))
-    # Predict relative log number of reads on allele 1
-    xb_1 = np.dot(null_data['x_1'], beta_mat)
-    # Predict relative log number of reads on allele 2
-    xb_2 = np.dot(null_data['x_2'], beta_mat)
-    # Predict relative number of reads on allele 1
-    y_1 = np.exp(xb_1)
-    # Predict relative number of reads on allele 2
-    y_2 = np.exp(xb_2)
 
-    # Sample total reads from negative binomial distribution
-    sample_gene_counts = sample_gene_counts_from_negative_binomial_distribution(y_1, y_2, nb_conc, null_data['library_size'])
-
-    return np.asarray(sample_gene_counts).astype(int)
 
 # Load in data into pystan format for full model (including interaction term)
 def load_in_full_data(ys, ns, h_1, h_2, environmental_vars, permute, permutation_scheme, null_data, sm, cell_line_indices,optimization_method, model_version, covs, covariate_method):
@@ -274,15 +246,11 @@ def load_in_full_data(ys, ns, h_1, h_2, environmental_vars, permute, permutation
             h_2_interaction_mat = np.transpose(np.asmatrix(h_2*environmental_vars))
             # Optimize the null model
             op_null = null_model_optimization_shell(null_data, sm, optimization_method)
-            if model_version == 'joint_log_linear':
+            if model_version == 'as_log_linear':
                 # Sample read counts from fitted null model
-                gene_counts, ys, ns = draw_samples_from_fitted_null_joint_model(np.atleast_1d(op_null['par']['conc']), np.atleast_1d(op_null['par']['nb_conc'])[0], op_null['par']['beta'], null_data)
+                ys, ns = draw_samples_from_fitted_null_as_model(np.atleast_1d(op_null['par']['conc']), op_null['par']['beta'], null_data)
                 # Also update null data to have same allelic counts
                 null_data['ys'] = ys
-                null_data['gene_counts'] = gene_counts
-            elif model_version == 'te_log_linear' or model_version == 'te_log_linear_quadratic_basis' or model_version == 'te_log_linear_cubic_control':
-                gene_counts = draw_samples_from_fitted_null_te_model(np.atleast_1d(op_null['par']['nb_conc'])[0], op_null['par']['beta'], null_data)
-                null_data['gene_counts'] = gene_counts
         else:
             print('error: permutation scheme ' + permutation_scheme + ' currently not implemented')
     elif permute == 'False':  # Do not permute the data
