@@ -214,6 +214,7 @@ fi
 
 
 
+if false; then
 
 
 permutation_scheme="shuffle_all"
@@ -225,7 +226,6 @@ sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_resul
 
 
 
-if false; then
 
 
 permutation_scheme="sample_null"
@@ -240,10 +240,10 @@ sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_r
 
 
 Rscript merge_permutation_scheme_qq_plot.R $qtl_results_dir $qtl_visualization_dir
-
-
-
 fi
+
+
+
 
 
 
