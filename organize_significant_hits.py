@@ -205,13 +205,11 @@ def extract_hits_vector_v2(all_hits_file):
 ### 4. Genotype on allele_1 (h_1)
 ### 5. Genotype on allele_2 (h_2)
 def reorganize_data(test_infos):
-    # First extract gene_counts from test_infos
-    gene_counts = extract_gene_counts(test_infos)
     # Extract genotype on allele_1 and allele_2 (h_1 and h_2)
     h_1, h_2 = extract_test_snp_haplotype(test_infos)
     # Now extract allele specific read counts
     ys, ns = extract_allele_specific_read_counts(h_1, h_2, test_infos)
-    return gene_counts, ys, ns, h_1, h_2
+    return ys, ns, h_1, h_2
 
 
 
@@ -439,7 +437,7 @@ def get_allelic_counts(ys, ns, h_1, h_2, site_num, environmental_vars):
     for sample_num in np.arange(num_samples):
         if h_1[sample_num] == h_2[sample_num]:  # homozygous variant
             continue
-        if ns[sample_num, site_num] < 1:
+        if ns[sample_num, site_num] < 3:
             continue
         if h_1[sample_num] == 0:
             a1_counts.append(ys[sample_num, site_num])
@@ -552,13 +550,12 @@ def make_gene_mapping(target_region_input_file):
 parameter_string = sys.argv[1]
 qtl_results_dir = sys.argv[2]
 joint_test_input_file = sys.argv[3]
-correction_factor_file = sys.argv[4]
-qtl_visualization_dir = sys.argv[5]
-min_num_biallelic_lines = int(sys.argv[6])
-min_num_biallelic_samples = int(sys.argv[7])
-min_num_het_test_variant_biallelic_samples = int(sys.argv[8])
-short_parameter_string = sys.argv[9]
-target_region_input_file = sys.argv[10]
+qtl_visualization_dir = sys.argv[4]
+min_num_biallelic_lines = int(sys.argv[5])
+min_num_biallelic_samples = int(sys.argv[6])
+min_num_het_test_variant_biallelic_samples = int(sys.argv[7])
+short_parameter_string = sys.argv[8]
+target_region_input_file = sys.argv[9]
 
 ############################################
 # Extract vector of length number of tests where each element is a tuple
@@ -566,6 +563,7 @@ target_region_input_file = sys.argv[10]
 # The second element of the tuple is a list of information describing the variant gene pair
 all_hits_file = qtl_results_dir + short_parameter_string + '_permutation_scheme_none_permute_False_merged_dynamic_qtl_results.txt'
 egenes_file = qtl_results_dir + parameter_string + '_efdr_.05_significant_egenes.txt'
+
 hits = extract_hits_vector(egenes_file, all_hits_file)
 #hits = extract_hits_vector_v2(all_hits_file)
 
@@ -582,7 +580,6 @@ num_tests = extract_number_of_tests(joint_test_input_file)
 ## 3. Environmental variables
 ## 4. library size correction factors
 sample_ids, filehandles, environmental_vars, cell_lines = parse_joint_test_input_file(joint_test_input_file)
-library_size_correction_factors = parse_correction_factor_file(correction_factor_file)
 
 # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
 cell_line_indices = get_cell_line_indices(joint_test_input_file)
@@ -614,7 +611,7 @@ for test_number in range(num_tests):
     ### 5. Genotype on allele_2 (h_2)
 
 
-    gene_counts, ys, ns, h_1, h_2 = reorganize_data(test_infos)
+    ys, ns, h_1, h_2 = reorganize_data(test_infos)
 
     # If the dimension of ys and ns (Ie. the number of heterozygous exonic sites) is too large, the algorithm will become prohibitively slow
     # So we subset to the top $max_sites with the largest number of minor allele read counts
@@ -622,16 +619,23 @@ for test_number in range(num_tests):
     
 
     genotype = (h_1 + h_2).astype(str)
-    gene_counts = gene_counts/library_size_correction_factors
     num_sites = ys.shape[1]
+    # Simple error checking
+    if len(hit_dicti['conc']) != num_sites:
+        print('FATAL ASSUMPTION ERROR!!')
+        pdb.set_trace()
+
     if num_sites > max_sites:
         num_sites = max_sites
+    conc_to_print = np.asarray(sorted(hit_dicti['conc'].astype(float),reverse=True)).astype(str)
     t.write(ensamble_id + '\t' + rs_id + '\t' + str(hit_dicti['pvalue']) + '\t' + str(hit_dicti['beta']) + '\t' + ';'.join(np.asarray(environmental_vars).astype(str)) + '\t')
-    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype) + '\t' + hit_dicti['conc'][0])
-    if num_sites > 10:
-        conc = hit_dicti['conc'].astype(float)
-        ys = ys[:, conc.argsort()[::-1]]
-        ns = ns[:, conc.argsort()[::-1]]
+    t.write(';'.join(genotype) + '\t' + ';'.join(conc_to_print))
+    
+
+
+    conc = hit_dicti['conc'].astype(float)
+    ys = ys[:, conc.argsort()[::-1]]
+    ns = ns[:, conc.argsort()[::-1]]
 
     for site_num in range(max_sites):
         if site_num + 1 > num_sites:
