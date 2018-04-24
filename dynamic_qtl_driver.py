@@ -140,6 +140,24 @@ def draw_samples_from_fitted_null_te_model(nb_conc, beta, null_data):
 
     return np.asarray(sample_gene_counts).astype(int)
 
+def permute_dosage_vars_between_cell_line_blocks(dosage, cell_line_indices):
+    num_cell_lines = len(cell_line_indices)
+    dosage_perm = np.zeros(len(dosage))
+
+    permuted_line_ordering = np.random.permutation(np.arange(num_cell_lines))
+
+    line_names = []
+    for cell_line in cell_line_indices.keys():
+        line_names.append(cell_line)
+
+    for cell_line_number, cell_line in enumerate(line_names):
+        replacement_line = line_names[permuted_line_ordering[cell_line_number]]
+        dosage_perm[cell_line_indices[cell_line]] = np.zeros(len(cell_line_indices[cell_line])) + dosage[cell_line_indices[replacement_line]][0]
+    return dosage_perm
+
+
+
+
 # Load in data into pystan format for full model (including interaction term)
 def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_correction_factors, permute, permutation_scheme, null_data, sm, cell_line_indices, optimization_method, model_version, covs, covariate_method):
     N = len(gene_counts)
@@ -160,6 +178,12 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
         elif permutation_scheme == 'shuffle_all':
             environmental_vars_perm = permute_environmental_vars_all(environmental_vars)
             interaction_mat = np.transpose(np.asmatrix(dosage*environmental_vars_perm))
+        elif permutation_scheme == 'shuffle_genotype':
+            dosage_vars_perm = permute_environmental_vars_all(dosage)
+            interaction_mat = np.transpose(np.asmatrix(dosage_vars_perm*environmental_vars))
+        elif permutation_scheme == 'shuffle_genotype_by_line':
+            dosage_vars_perm = permute_dosage_vars_between_cell_line_blocks(dosage, cell_line_indices)
+            interaction_mat = np.transpose(np.asmatrix(dosage_vars_perm*environmental_vars))
         #  Fit null model. Use parameters from fitted null models to draw samples (gene counts).
         #  Then run LRT on sampled data
         elif permutation_scheme == 'sample_null':

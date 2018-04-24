@@ -155,6 +155,32 @@ done
 fi
 
 
+##########################
+# Run permutation independently in each cell line
+permute="True"
+permutation_scheme="shuffle_genotype_by_line"
+##########################
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
+done
+fi
+
+
+##########################
+# Run permutation independently in each cell line
+permute="True"
+permutation_scheme="shuffle_genotype"
+##########################
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
+done
+fi
 
 
 
