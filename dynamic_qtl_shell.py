@@ -16,7 +16,11 @@ def parse_joint_test_input_file(joint_test_input_file):
     sample_ids = []
     filehandles = []
     environmental_vars = []
-    cov = []
+    t15_cov = []
+    final_pseudotime_cov = []
+    pc1 = []
+    pc2 = []
+    pc3 = []
     # Open input filehandle
     f = open(joint_test_input_file)
     head_count = 0  # skip header
@@ -32,14 +36,24 @@ def parse_joint_test_input_file(joint_test_input_file):
         environmental_var = float(data[1])
         sample_ids.append(sample_id)
         environmental_vars.append(environmental_var)
-        cov.append(float(data[3]))
+        t15_cov.append(float(data[3]))
+        final_pseudotime_cov.append(float(data[4]))
+        pc1.append(float(data[5]))
+        pc2.append(float(data[6]))
+        pc3.append(float(data[7]))
         # Add filehandle
         file_name = data[2]
 
         f = gzip.open(file_name)
         header = f.readline()  # Skip header
         filehandles.append(f)
-    return sample_ids, filehandles, np.asarray(environmental_vars), np.asarray(cov)
+    cov = {}
+    cov['t15_troponin'] = np.asarray(t15_cov)
+    cov['final_pseudotime'] = np.asarray(final_pseudotime_cov)
+    cov['cell_line_pc1'] = np.asarray(pc1)
+    cov['cell_line_pc2'] = np.asarray(pc2)
+    cov['cell_line_pc3'] = np.asarray(pc3)
+    return sample_ids, filehandles, np.asarray(environmental_vars), cov
 
 # Parse through correction_factor_file to extract ordered list of:
 ## 1. library_size_correction_factors
@@ -269,6 +283,7 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
 
     # Open output file
     t = open(output_stem + 'dynamic_qtl_results.txt', 'w')
+
     
     # Loop through each of the tests
     for test_number in range(num_tests):
@@ -300,7 +315,9 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         # t.write(test_infos[0][0] + '\t' +  test_infos[0][1] + '\t' + test_infos[0][2].split("'")[1] + '\t' + test_infos[0][3].split("'")[1] + '\t' + test_infos[0][4].split("'")[1] + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         if model_version == 'te_log_linear':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + 'NA' + '\n')
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(result['perm_env_vars'].astype(str)) + '\n')
+        elif model_version == 'te_log_linear_quadratic_basis':
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-2]) + ',' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(result['perm_env_vars'].astype(str)) + '\n')
         if np.mod(test_number, 10) == 0:
             t.flush()
     t.close()

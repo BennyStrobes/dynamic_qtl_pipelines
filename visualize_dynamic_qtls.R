@@ -111,7 +111,8 @@ real_data <- read.table(real_merged_results,header=TRUE, sep = "\t")
 perm_data <- read.table(perm_merged_results, header=TRUE, sep = "\t")
 
 
-
+print(dim(real_data))
+print(dim(perm_data))
 
 #############################
 # Make pvalue histogram

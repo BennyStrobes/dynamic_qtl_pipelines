@@ -89,6 +89,40 @@ def extract_variable_pseudotime_median(sample_name, pseudotime_file, num_states)
     else:
         return 'NA'
 
+def extract_cell_lines_largest_pseudotime_variable(sample_name, pseudotime_predictions_5_file):
+    cell_line = sample_name.split('_')[0]
+    f = open(pseudotime_predictions_5_file)
+    maxy = -1
+    for line in f:
+        line = line.rstrip()
+        data = line.split(',')
+        line_cell_line = data[0].split('_')[0]
+        if line_cell_line != cell_line:
+            continue
+        pseudo = int(data[1])
+        if pseudo > maxy:
+            maxy = pseudo
+
+    f.close()
+    if maxy == -1:
+        print('fatal assumption errorr')
+        pdb.set_trace()
+    return str(maxy)
+
+def extract_cell_line_pc(cell_line_pc_file, sample_name, pc_num):
+    f = open(cell_line_pc_file)
+    head_count = 0
+    cell_liner = sample_name.split('_')[0]
+    for line in f:
+        line = line.rstrip()
+        data = line.split()
+        if head_count == 0:
+            head_count = head_count + 1
+            continue
+        if data[0] == cell_liner:
+            return data[pc_num]
+
+
 
 input_directory = sys.argv[1]  # Directory containing all CHT input files
 output_file = sys.argv[2]  # Output file
@@ -97,9 +131,10 @@ pseudotime_predictions_3_file = sys.argv[4]
 pseudotime_predictions_4_file = sys.argv[5]
 pseudotime_predictions_5_file = sys.argv[6]
 total_expression_file = sys.argv[7]
+cell_line_pc_file = sys.argv[8]
 
 t = open(output_file, 'w')  # Open output file handle
-t.write('sample_id\tenvironmental_variable\tcht_input_file\ttroponin_t15\n')
+t.write('sample_id\tenvironmental_variable\tcht_input_file\ttroponin_t15\tpseudotime_5\tcell_line_pc1\tcell_line_pc2\tcell_line_pc3\n')
 
 for file_name in sorted(os.listdir(input_directory)):
     if file_name.startswith('haplotype_read_counts_rand_hap') == False:
@@ -133,6 +168,12 @@ for file_name in sorted(os.listdir(input_directory)):
     if environmental_variable == 'NA':
         continue
     troponin_expression = get_troponin_expression(sample_name, total_expression_file)
+
+    pseudotime_variable = extract_cell_lines_largest_pseudotime_variable(sample_name, pseudotime_predictions_5_file)
+
+    cell_line_pc1 = extract_cell_line_pc(cell_line_pc_file, sample_name, 1)
+    cell_line_pc2 = extract_cell_line_pc(cell_line_pc_file, sample_name, 2)
+    cell_line_pc3 = extract_cell_line_pc(cell_line_pc_file, sample_name, 3)
     # Print information to output file
-    t.write(sample_name + '\t' + environmental_variable + '\t' + input_directory + file_name + '\t' + troponin_expression + '\n')
+    t.write(sample_name + '\t' + environmental_variable + '\t' + input_directory + file_name + '\t' + troponin_expression + '\t' + pseudotime_variable + '\t' + cell_line_pc1 + '\t' + cell_line_pc2 + '\t' + cell_line_pc3 + '\n')
 t.close()

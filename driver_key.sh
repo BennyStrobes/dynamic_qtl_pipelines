@@ -27,6 +27,8 @@ pseudotime_predictions_4_file="/project2/gilad/bstrober/ipsc_differentiation/pre
 # 5 state HMM
 pseudotime_predictions_5_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/5_state_output_14.csv"
 
+# cell line specific principal components
+cell_line_pc_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess/covariates/cell_line_ignore_missing_principal_components_5.txt"
 
 total_expression_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess/processed_total_expression/quantile_normalized.txt"
 
@@ -78,9 +80,8 @@ qtl_visualization_dir=$output_root"qtl_visualization/"
 ### 8. 'time_steps_max_9': raw time format, but do not include any samples where time is greater than 9
 environmental_variable_form="time_steps"
 joint_test_input_file=$input_data_dir"joint_test_input_file_"$environmental_variable_form".txt"
-
 if false; then
-python create_joint_test_input_file.py $cht_input_file_dir $joint_test_input_file $environmental_variable_form $pseudotime_predictions_3_file $pseudotime_predictions_4_file $pseudotime_predictions_5_file $total_expression_file
+python create_joint_test_input_file.py $cht_input_file_dir $joint_test_input_file $environmental_variable_form $pseudotime_predictions_3_file $pseudotime_predictions_4_file $pseudotime_predictions_5_file $total_expression_file $cell_line_pc_file
 fi
 
 
@@ -114,15 +115,18 @@ fi
 ### 6. 'te_log_linear_quadratic_basis'
 ### 7. 'te_gaussian_process'
 ### 8. 'te_log_linear_cubic_control'
-model_version="te_log_linear"
+model_version="te_log_linear_quadratic_basis"
 
 # Optimization method
-optimization_method="LBFGS"
+optimization_method="Newton"
 
 # covariates to use
-### 1. "t15_troponin"
+### 1. "final_pseudotimextime"
 ### 2. "none"
-covariate_method="none"
+### 3. "cell_line_pc1Xtime"
+### 4. "cell_line_pc1_2Xtime"
+### 5. "cell_line_pc1_3Xtime"
+covariate_method="cell_line_pc1Xtime"
 
 # Genotype_version
 ### 1. "dosage"
@@ -155,10 +159,11 @@ done
 fi
 
 
+
 ##########################
-# Run permutation independently in each cell line
+# Run permutation for all samples
 permute="True"
-permutation_scheme="shuffle_genotype_by_line"
+permutation_scheme="shuffle_all"
 ##########################
 if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
@@ -167,6 +172,59 @@ for job_number in $(seq 0 $(($total_jobs-1))); do
     sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
+
+
+
+
+if false; then
+##########################
+# Run permutation for all samples
+permute="True"
+permutation_scheme="shuffle_all_include_covs"
+##########################
+
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
+done
+fi
+
+
+
+if false; then
+##########################
+# Run permutation for all samples
+permute="True"
+permutation_scheme="shuffle_all_time"
+##########################
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
+done
+fi
+
+
+
+
+
+
+
+##########################
+# Run permutation for all samples
+permute="True"
+permutation_scheme="sample_null"
+
+##########################
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
+done
+fi
+
 
 
 ##########################
@@ -184,11 +242,10 @@ fi
 
 
 
-
 ##########################
-# Run permutation for all samples
+# Run permutation independently in each cell line
 permute="True"
-permutation_scheme="shuffle_all"
+permutation_scheme="shuffle_all_genotype_by_line"
 ##########################
 if false; then
 for job_number in $(seq 0 $(($total_jobs-1))); do 
@@ -197,29 +254,6 @@ for job_number in $(seq 0 $(($total_jobs-1))); do
     sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
-
-
- 
-
-
-
-
-
-
-##########################
-# Run permutation for all samples
-permute="True"
-permutation_scheme="sample_null"
-
-##########################
-if false; then
-for job_number in $(seq 0 $(($total_jobs-1))); do 
-    # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
-done
-fi
-
 
 
 
@@ -240,22 +274,52 @@ fi
 
 
 
-if false; then
-
 
 permutation_scheme="shuffle_all"
-
 sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
 
+if false; then
 
-
+sleep 25
+permutation_scheme="shuffle_all_time"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+sleep 25
+permutation_scheme="shuffle_all_include_covs"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
 
 
 
 
 
 permutation_scheme="sample_null"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
+
+permutation_scheme="shuffle_all"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
+
+
+permutation_scheme="shuffle_all"
 sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+sleep 8
+permutation_scheme="shuffle_all_time"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+sleep 8
+permutation_scheme="shuffle_all_include_covs"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
+
+
+
+
 
 
 
@@ -265,11 +329,30 @@ sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_r
 
 
 
+permutation_scheme="shuffle_all_genotype_by_line"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
+
+permutation_scheme="shuffle_genotype_by_line"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
+permutation_scheme="shuffle_genotype"
+sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
+
+
+
 Rscript merge_permutation_scheme_qq_plot.R $qtl_results_dir $qtl_visualization_dir
+
+
+
+
+
+Rscript merge_permutation_scheme_two_categories_qq_plot.R $qtl_results_dir $qtl_visualization_dir
 fi
-
-
-
 
 
 

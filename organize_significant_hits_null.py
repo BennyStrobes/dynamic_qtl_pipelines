@@ -176,7 +176,7 @@ def extract_hits_vector_v2(all_hits_file):
         pvalue = float(data[-3])
         ensamble_id = data[5]
         rs_id = data[2]
-        if pvalue > 1e-7 or ensamble_id in used_genes:
+        if pvalue != 0.0:
             continue
         # hit information
         dicti = {}
@@ -188,7 +188,7 @@ def extract_hits_vector_v2(all_hits_file):
         dicti['ensamble_id'] = data[5]
         dicti['pvalue'] = pvalue
         dicti['beta'] = data[-2]
-        dicti['conc'] = data[-1]
+        dicti['time_steps'] = data[-1]
         hits[rs_id + '_' + ensamble_id] = dicti
         used_genes[ensamble_id] = 1
     print(len(hits))
@@ -573,9 +573,12 @@ target_region_input_file = sys.argv[7]
 # Extract vector of length number of tests where each element is a tuple
 # The first element in the tuple is a binary variable that is a 1 if that variant-gene pair is a highest
 # The second element of the tuple is a list of information describing the variant gene pair
-all_hits_file = qtl_results_dir + short_parameter_string + '_permutation_scheme_none_permute_False_merged_dynamic_qtl_results.txt'
-egenes_file = qtl_results_dir + parameter_string + '_efdr_.01_significant_egenes.txt'
-hits = extract_hits_vector(egenes_file, all_hits_file)
+null_hits_file = qtl_results_dir + parameter_string + '_permute_True_merged_dynamic_qtl_results.txt'
+
+
+hits = extract_hits_vector_v2(null_hits_file)
+
+
 #hits = extract_hits_vector_v2(all_hits_file)
 
 gene_mapping = make_gene_mapping(target_region_input_file)
@@ -596,7 +599,7 @@ library_size_correction_factors = parse_correction_factor_file(correction_factor
 # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
 cell_line_indices = get_cell_line_indices(joint_test_input_file)
 
-output_file = qtl_visualization_dir + parameter_string + '_dynamic_qtl_hits_summary.txt'
+output_file = qtl_visualization_dir + parameter_string + '_dynamic_qtl_hits_null_summary.txt'
 
 t = open(output_file, 'w')
 
@@ -628,7 +631,7 @@ for test_number in range(num_tests):
 
 
     t.write(ensamble_id + '\t' + rs_id + '\t' + str(hit_dicti['pvalue']) + '\t' + str(hit_dicti['beta']) + '\t' + ';'.join(np.asarray(environmental_vars).astype(str)) + '\t')
-    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype))
+    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype) + '\t' + hit_dicti['time_steps'])
 
     t.write('\n')
     t.flush()

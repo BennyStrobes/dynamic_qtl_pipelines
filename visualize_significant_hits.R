@@ -39,7 +39,7 @@ make_as_plot_v2 <- function(allelic_df, site_number) {
 
 make_te_plot <- function(ensamble_id, rs_id, pvalue, beta, te_df, nb_conc) {
     # Change box plot line colors by groups
-    p <- ggplot(te_df, aes(x=time_step, y=gene_counts, fill=genotype)) + geom_boxplot() +
+    p <- ggplot(te_df, aes(x=time_step, y=gene_counts, fill=genotype)) + geom_boxplot(width=.4) +
        theme(text = element_text(size=13),plot.title = element_text(size=13), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black")) +
        labs(x = "Time Step", y = "log(counts)", title=paste0(ensamble_id, " / ", rs_id, " / p=", pvalue, " \n beta_full=", strsplit(beta,"/")[[1]][1])) +
        theme(legend.position="bottom")
@@ -51,7 +51,7 @@ visualization_dir = args[2]
 output_dir = args[3]
 
 
-input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_summary.txt")
+input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_null_summary.txt")
 print(input_file)
 stop = FALSE
 f = file(input_file, "r")
@@ -63,17 +63,17 @@ while(!stop) {
   pvalue <- data[3]
 
   beta <- data[4]
-  environmental_vars <- as.numeric(strsplit(data[5],';')[[1]])
+  # environmental_vars <- as.numeric(strsplit(data[5],';')[[1]])
   gene_counts <- as.numeric(strsplit(data[6],';')[[1]])
   genotype <- as.numeric(strsplit(data[7],';')[[1]])
-  nb_conc <- data[8]
+  environmental_vars <- as.numeric(strsplit(data[8],',')[[1]])
 
   te_df <- data.frame(gene_counts=log(gene_counts), time_step=factor(environmental_vars), genotype=factor(genotype))
 
   output_file <- paste0(output_dir, parameter_string, "_", ensamble_id, "_", rs_id, "_dynamic_qtl_hit.png")
 
   te_plot <- make_te_plot(ensamble_id, rs_id, pvalue, beta, te_df, nb_conc)
-  ggsave(te_plot, file=output_file, width=20, height=10.5, units="cm")
+  ggsave(te_plot, file=output_file, width=24, height=10.5, units="cm")
   
   ## Insert some if statement logic here
   if(length(next_line) == 0) {
