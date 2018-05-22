@@ -315,9 +315,7 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         # t.write(test_infos[0][0] + '\t' +  test_infos[0][1] + '\t' + test_infos[0][2].split("'")[1] + '\t' + test_infos[0][3].split("'")[1] + '\t' + test_infos[0][4].split("'")[1] + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         if model_version == 'te_log_linear':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(result['perm_env_vars'].astype(str)) + '\n')
-        elif model_version == 'te_log_linear_quadratic_basis':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-2]) + ',' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(result['perm_env_vars'].astype(str)) + '\n')
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + 'NA' + '\n')
         if np.mod(test_number, 10) == 0:
             t.flush()
     t.close()

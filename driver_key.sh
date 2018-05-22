@@ -112,13 +112,10 @@ fi
 #################
 # Name of model. Current options are:
 ### 2. 'te_log_linear'
-### 6. 'te_log_linear_quadratic_basis'
-### 7. 'te_gaussian_process'
-### 8. 'te_log_linear_cubic_control'
-model_version="te_log_linear_quadratic_basis"
+model_version="te_log_linear"
 
 # Optimization method
-optimization_method="Newton"
+optimization_method="LBFGS"
 
 # covariates to use
 ### 1. "final_pseudotimextime"
