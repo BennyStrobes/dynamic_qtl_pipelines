@@ -51,7 +51,7 @@ visualization_dir = args[2]
 output_dir = args[3]
 
 
-input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_null_summary.txt")
+input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_summary.txt")
 print(input_file)
 stop = FALSE
 f = file(input_file, "r")
@@ -63,10 +63,15 @@ while(!stop) {
   pvalue <- data[3]
 
   beta <- data[4]
-  # environmental_vars <- as.numeric(strsplit(data[5],';')[[1]])
+  environmental_vars <- as.numeric(strsplit(data[5],';')[[1]])
   gene_counts <- as.numeric(strsplit(data[6],';')[[1]])
   genotype <- as.numeric(strsplit(data[7],';')[[1]])
-  environmental_vars <- as.numeric(strsplit(data[8],',')[[1]])
+  #environmental_vars <- as.numeric(strsplit(data[8],',')[[1]])
+
+  print(next_line)
+  print(beta)
+  print(environmental_vars)
+  print(genotype)
 
   te_df <- data.frame(gene_counts=log(gene_counts), time_step=factor(environmental_vars), genotype=factor(genotype))
 

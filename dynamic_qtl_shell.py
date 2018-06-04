@@ -293,7 +293,7 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
         # Only perform tests corresponding to this job number (for parrallelization purposes)
         if test_number < start_test or test_number >= end_test:
             continue
-        print(test_number - start_test)
+        sys.stderr.write(str(test_number - start_test) + '\n')
 
         # Check to make sure the lines from each sample are all testing the same test ((variant, gene) pair)
         check_to_make_sure_tests_are_all_the_same(test_infos)
@@ -309,15 +309,15 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
         if genotype_version == 'round':
             dosage = np.round(dosage)
 
+        sys.stdout.write('\t'.join(test_infos[0][0:9]) + '\n')
+        sys.stdout.flush()
         # Run dynamic qtl test
         result = dynamic_qtl(gene_counts, dosage, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, covs, covariate_method)
         # Print results to output file
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         # t.write(test_infos[0][0] + '\t' +  test_infos[0][1] + '\t' + test_infos[0][2].split("'")[1] + '\t' + test_infos[0][3].split("'")[1] + '\t' + test_infos[0][4].split("'")[1] + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
-        if model_version == 'te_log_linear':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(result['perm_env_vars'].astype(str)) + '\n')
-        elif model_version == 'te_log_linear_quadratic_basis':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-2]) + ',' + str(result['fit_full']['par']['beta'][-1]) + '\t' + ','.join(result['perm_env_vars'].astype(str)) + '\n')
+        if model_version == 'te_log_linear_quadratic_basis':
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + ','.join(result['fit_full']['par']['beta'].astype(str)) + '\t' + ','.join(result['test_time_steps'].astype(str)) + '\n')
         if np.mod(test_number, 10) == 0:
             t.flush()
     t.close()

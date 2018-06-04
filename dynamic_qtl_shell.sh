@@ -1,5 +1,9 @@
 #!/bin/bash
-#SBATCH --time=15:00:00 --partition=broadwl --mem=15GB
+#SBATCH --time=22:00:00 --partition=broadwl --mem=15GB
+#SBATCH -o /project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data_te_quadratic/log_files/slurm.%N.%j.out # STDOUT
+#SBATCH -e /project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data_te_quadratic/log_files/slurm.%N.%j.err # STDERR
+
+
 module unload python
 module load Anaconda3
 

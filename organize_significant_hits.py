@@ -153,7 +153,7 @@ def extract_hits_vector(egenes_file, hits_file):
             dicti['alt_allele'] = data[4]
             dicti['ensamble_id'] = data[5]
             dicti['pvalue'] = pvalue
-            dicti['beta'] = float(data[-2])
+            dicti['beta'] = data[-2]
             dicti['conc'] = np.asarray(data[-1].split(','))
             hits[rs_id + '_' + ensamble_id] = dicti
     print(len(hits))

@@ -15,48 +15,13 @@ def load_in_null_data(gene_counts, dosage, environmental_vars, library_size_corr
     env_mat = np.transpose(np.asmatrix(environmental_vars))
     dosage_mat = np.transpose(np.asmatrix(dosage))
     if covariate_method == 'none':
-        if model_version == 'te_log_linear_quadratic_basis':
-            x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat))
-        else:
-            x_1 = np.hstack((intercept, env_mat, dosage_mat))
-    elif covariate_method == 'final_pseudotimeXtime':
-        covariate_interaction_arr = covs['final_pseudotime']*environmental_vars
-        covariate_interaction_mat = np.transpose(np.asmatrix(covariate_interaction_arr))
-        covariate_interaction_arr_squared = covs['final_pseudotime']*np.square(environmental_vars)
-        covariate_interaction_mat_squared = np.transpose(np.asmatrix(covariate_interaction_arr_squared))
-        if model_version == 'te_log_linear_quadratic_basis':
-            x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, covariate_interaction_mat, covariate_interaction_mat_squared))
-        else:
-            x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat))
+        x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat))
     elif covariate_method == 'cell_line_pc1Xtime':
         covariate_interaction_arr = covs['cell_line_pc1']*environmental_vars
         covariate_interaction_mat = np.transpose(np.asmatrix(covariate_interaction_arr))
         covariate_interaction_arr_squared = covs['cell_line_pc1']*np.square(environmental_vars)
         covariate_interaction_mat_squared = np.transpose(np.asmatrix(covariate_interaction_arr_squared))
-        if model_version == 'te_log_linear_quadratic_basis':
-            x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, covariate_interaction_mat, covariate_interaction_mat_squared))
-        else:
-            x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat))
-    elif covariate_method == 'cell_line_pc1_2Xtime':
-        covariate_interaction_arr1 = covs['cell_line_pc1']*environmental_vars
-        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
-        covariate_interaction_arr2 = covs['cell_line_pc2']*environmental_vars
-        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))
-        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1, covariate_interaction_mat2))
-        if model_version == 'te_log_linear_quadratic_basis':
-            print('ERROR: not currently implemented')
-            pdb.set_trace()
-    elif covariate_method == 'cell_line_pc1_3Xtime':
-        covariate_interaction_arr1 = covs['cell_line_pc1']*environmental_vars
-        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
-        covariate_interaction_arr2 = covs['cell_line_pc2']*environmental_vars
-        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))
-        covariate_interaction_arr3 = covs['cell_line_pc3']*environmental_vars
-        covariate_interaction_mat3 = np.transpose(np.asmatrix(covariate_interaction_arr3))
-        if model_version == 'te_log_linear_quadratic_basis':
-            print('ERROR: not currently implemented')
-            pdb.set_trace()
-        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1, covariate_interaction_mat2, covariate_interaction_mat3))
+        x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, covariate_interaction_mat, covariate_interaction_mat_squared))
     data = dict(N=N, P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, gene_counts=gene_counts, concShape=1.001, concRate=0.001)
     return data
 
@@ -120,7 +85,7 @@ def null_model_optimization_shell(null_data, sm, optimization_method):
         try:
             # Use same seed for null and alternate models
             seed = np.random.randint(10000000) + 1
-            # Run dynamic qtls
+            # Run dynamic qtls                                                                                   
             op_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=optimization_method, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
             working = False
             # Make sure log likelihood is not nan
@@ -215,10 +180,6 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
             environmental_vars_perm = permute_environmental_vars_within_cell_line(environmental_vars, cell_line_indices)
             interaction_mat = np.transpose(np.asmatrix(dosage*environmental_vars_perm))
             interaction_mat_squared = np.transpose(np.asmatrix(dosage*np.square(environmental_vars_perm)))
-        elif permutation_scheme == 'shuffle_lines_ordered':
-            environmental_vars_perm = permute_environmental_vars_within_cell_line_ordered(environmental_vars, cell_line_indices)
-            interaction_mat = np.transpose(np.asmatrix(dosage*environmental_vars_perm))
-            interaction_mat_squared = np.transpose(np.asmatrix(dosage*np.square(environmental_vars_perm)))
         # Run permutation for all samples
         elif permutation_scheme == 'shuffle_all':
             environmental_vars_perm = permute_environmental_vars_all(environmental_vars)
@@ -235,22 +196,6 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
             env_mat = np.transpose(np.asmatrix(environmental_vars))
             interaction_mat = np.transpose(np.asmatrix(dosage*environmental_vars_perm))
             interaction_mat_squared = np.transpose(np.asmatrix(dosage*np.square(environmental_vars_perm)))
-        elif permutation_scheme == 'shuffle_genotype':
-            dosage_vars_perm = permute_environmental_vars_all(dosage)
-            environmental_vars_perm = environmental_vars
-            interaction_mat = np.transpose(np.asmatrix(dosage_vars_perm*environmental_vars))
-            interaction_mat_squared = np.transpose(np.asmatrix(dosage_vars_perm*np.square(environmental_vars)))
-        elif permutation_scheme == 'shuffle_genotype_by_line':
-            dosage_vars_perm = permute_dosage_vars_between_cell_line_blocks(dosage, cell_line_indices)
-            environmental_vars_perm = environmental_vars
-            interaction_mat = np.transpose(np.asmatrix(dosage_vars_perm*environmental_vars))
-            interaction_mat_squared = np.transpose(np.asmatrix(dosage_vars_perm*np.sqaure(environmental_vars)))
-        elif permutation_scheme == 'shuffle_all_genotype_by_line':
-            dosage_vars_perm = permute_dosage_vars_between_cell_line_blocks(dosage, cell_line_indices)
-            interaction_mat = np.transpose(np.asmatrix(dosage_vars_perm*environmental_vars))
-            dosage_mat = np.transpose(np.asmatrix(dosage_vars_perm))
-            environmental_vars_perm = environmental_vars
-            null_data['x_1'][:,-1] = dosage_mat
         #  Fit null model. Use parameters from fitted null models to draw samples (gene counts).
         #  Then run LRT on sampled data
         elif permutation_scheme == 'sample_null':
@@ -259,7 +204,7 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
             environmental_vars_perm = environmental_vars
             # Optimize the null model
             op_null = null_model_optimization_shell(null_data, sm, optimization_method)
-            if model_version == 'te_log_linear' or model_version == 'te_log_linear_quadratic_basis':
+            if model_version == 'te_log_linear_quadratic_basis':
                 gene_counts = draw_samples_from_fitted_null_te_model(np.atleast_1d(op_null['par']['nb_conc'])[0], op_null['par']['beta'], null_data)
                 null_data['gene_counts'] = gene_counts
         else:
@@ -269,49 +214,41 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
         interaction_mat = np.transpose(np.asmatrix(dosage*environmental_vars))
         interaction_mat_squared = np.transpose(np.asmatrix(dosage*np.square(environmental_vars)))
     if covariate_method == 'none':
-        if model_version == 'te_log_linear_quadratic_basis':
-            x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, interaction_mat, interaction_mat_squared))
-            null_data['x_1'] = x_1[:,:-2]
-        else:
-            x_1 = np.hstack((intercept, env_mat, dosage_mat, interaction_mat))
-            null_data['x_1'] = x_1[:,:-1]
+        x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, interaction_mat, interaction_mat_squared))
+        null_data['x_1'] = x_1[:,:-2]
     elif covariate_method == 'cell_line_pc1Xtime':
         covariate_interaction_arr = covs['cell_line_pc1']*environmental_vars
         covariate_interaction_mat = np.transpose(np.asmatrix(covariate_interaction_arr))
         covariate_interaction_arr_squared = covs['cell_line_pc1']*np.square(environmental_vars)
         covariate_interaction_mat_squared = np.transpose(np.asmatrix(covariate_interaction_arr_squared))      
-        if model_version == 'te_log_linear_quadratic_basis':
-            x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, covariate_interaction_mat, covariate_interaction_mat_squared, interaction_mat, interaction_mat_squared))
-            null_data['x_1'] = x_1[:,:-2]
-        else:
-            x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat, interaction_mat))
-            null_data['x_1'] = x_1[:,:-1]
-    elif covariate_method == 'cell_line_pc1_2Xtime':
-        covariate_interaction_arr1 = covs['cell_line_pc1']*environmental_vars
-        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
-        covariate_interaction_arr2 = covs['cell_line_pc2']*environmental_vars
-        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))       
-        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1,covariate_interaction_mat2, interaction_mat))
-        null_data['x_1'] = x_1[:,:-1]
-        if model_version == 'te_log_linear_quadratic_basis':
-            print('error: currently not implemented')
-            pdb.set_trace()
-    elif covariate_method == 'cell_line_pc1_3Xtime':
-        covariate_interaction_arr1 = covs['cell_line_pc1']*environmental_vars
-        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
-        covariate_interaction_arr2 = covs['cell_line_pc2']*environmental_vars
-        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))       
-        covariate_interaction_arr3 = covs['cell_line_pc3']*environmental_vars
-        covariate_interaction_mat3 = np.transpose(np.asmatrix(covariate_interaction_arr3))  
-        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1,covariate_interaction_mat2, covariate_interaction_mat3, interaction_mat))
-        null_data['x_1'] = x_1[:,:-1]
-        if model_version == 'te_log_linear_quadratic_basis':
-            print('error: currently not implemented')
-            pdb.set_trace()
+        x_1 = np.hstack((intercept, env_mat, np.square(env_mat), dosage_mat, covariate_interaction_mat, covariate_interaction_mat_squared, interaction_mat, interaction_mat_squared))
+        null_data['x_1'] = x_1[:,:-2]
+
+
     full_data = dict(N=N, P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, gene_counts=gene_counts, concShape=1.001, concRate=0.001)
     return full_data, null_data, environmental_vars_perm
 
 
+# Run model with only expr ~ intercept + time + time^2 + genotype.
+# Use results for initialization of real model
+def run_simple_initialization_for_quadratic(null_data_temp,full_data, seed,algorithm, sm):
+    temp_data = {}
+    if null_data_temp['P'] == 6:
+        temp_data['x_1'] = null_data_temp['x_1'][:,:-2]
+        temp_data['P'] = null_data_temp['P'] - 2
+    else:
+        temp_data['x_1'] = null_data_temp['x_1']
+        temp_data['P'] = null_data_temp['P']
+    temp_data['library_size'] = null_data_temp['library_size']
+    temp_data['gene_counts'] = null_data_temp['gene_counts']
+    temp_data['concShape'] = null_data_temp['concShape']
+    temp_data['concRate'] = null_data_temp['concRate']
+    temp_data['N'] = null_data_temp['N']
+    op_init = sm.optimizing(data=temp_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
+    beta_init = np.zeros(full_data['P'])
+    beta_init[:temp_data['P']] = op_init['par']['beta']
+    init_param = dict(nb_conc=op_init['par']['nb_conc'], beta=beta_init)
+    return init_param
 
 
 
@@ -320,21 +257,17 @@ def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_v
     # Use same seed for null and alternate models
     seed = np.random.randint(10000000) + 1
 
+    # Run model with only expr ~ intercept + time + time^2 + genotype.
+    # Use results for initialization of real model
+    simple_init = run_simple_initialization_for_quadratic(null_data, full_data, seed, algorithm, sm)
+
     # Run pystan gradient based optimization on full model
-    op_full = sm.optimizing(data=full_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
+    op_full = sm.optimizing(data=full_data, as_vector=False, init=simple_init, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
 
     # Initialize null model with parameters defining the full model
     # initialization for joint model
-    if 'conc' in op_full['par'] and 'nb_conc' in op_full['par']:
-        init_null = dict(conc=np.atleast_1d(op_full['par']['conc']), nb_conc=op_full['par']['nb_conc'], beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
-    # Initialization for te only model
-    elif 'conc' not in op_full and 'nb_conc' in op_full['par']:
-        init_null = dict(nb_conc=op_full['par']['nb_conc'], beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
-    # Initialization for as only model
-    elif 'conc' in op_full['par'] and 'nb_conc' not in op_full['par']:
-        init_null = dict(conc=np.atleast_1d(op_full['par']['conc']), beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
-    elif 'conc' not in op_full['par'] and 'nb_conc' not in op_full['par']:
-        init_null = dict(beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
+    init_null = dict(nb_conc=op_full['par']['nb_conc'], beta=op_full['par']['beta'][:(len(op_full['par']['beta'])-dof)])
+
 
     # Run pystan gradient based optimization on null model
     if iteration == 1:
@@ -348,8 +281,10 @@ def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_v
 
     # Consider possibility that null did not fully converge
     if (loglr > 3):
+        refit_init = simple_init
+        refit_init['beta'] = refit_init['beta'][:-2]
         # Refit the null with new random init
-        refit_null = sm.optimizing(data=null_data, as_vector=False, seed=seed, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
+        refit_null = sm.optimizing(data=null_data, as_vector=False, init=refit_init, algorithm=algorithm, tol_obj=1e-17, tol_rel_obj=1e0, tol_grad=1e-13, tol_rel_grad=1e2, tol_param=1e-14)
         # Use the null model that has the higher likelihood
         if refit_null['value'] > op_null['value']:
             op_null = refit_null
@@ -367,7 +302,7 @@ def run_dynamic_qtl(sm, null_data, full_data, dof, algorithm, iteration, model_v
 
 def dynamic_qtl(gene_counts, dosage, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, covs, covariate_method):
     # Load in correct model
-    if model_version == 'te_log_linear' or model_version == 'te_log_linear_quadratic_basis':
+    if model_version == 'te_log_linear_quadratic_basis':
         #sm = pystan.StanModel(file='te_log_linear.stan')
         #f = open('te_log_linear.pkl','wb')
         #pickle.dump(sm, f)
@@ -406,4 +341,4 @@ def dynamic_qtl(gene_counts, dosage, environmental_vars, library_size_correction
     # Compute pvalue from chi-squared test statistic
     pvalue = 1.0 - stats.chi2.cdf(2.0*loglr, dof)
     
-    return dict(pvalue=pvalue, loglr=loglr, fit_full=op_full, fit_null=op_null, loglike_null=op_null['value'], loglike_full=op_full['value'], dosage=np.squeeze(np.asarray(null_data['x_1'][:,-1])), perm_env_vars=perm_env_vars)
+    return dict(pvalue=pvalue, loglr=loglr, fit_full=op_full, fit_null=op_null, loglike_null=op_null['value'], loglike_full=op_full['value'], dosage=np.squeeze(np.asarray(null_data['x_1'][:,-1])), test_time_steps=perm_env_vars)
