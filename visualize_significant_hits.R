@@ -51,7 +51,7 @@ visualization_dir = args[2]
 output_dir = args[3]
 
 
-input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_null_summary.txt")
+input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_summary.txt")
 print(input_file)
 stop = FALSE
 f = file(input_file, "r")
