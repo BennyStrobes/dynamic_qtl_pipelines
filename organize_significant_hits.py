@@ -34,6 +34,7 @@ def parse_joint_test_input_file(joint_test_input_file):
     filehandles = []
     environmental_vars = []
     cell_lines = []
+    cell_line_pc1 = []
     # Open input filehandle
     f = open(joint_test_input_file)
     head_count = 0  # skip header
@@ -50,12 +51,13 @@ def parse_joint_test_input_file(joint_test_input_file):
         sample_ids.append(sample_id)
         environmental_vars.append(environmental_var)
         cell_lines.append(sample_id.split('_')[0])
+        cell_line_pc1.append(float(data[5]))
         # Add filehandle
         file_name = data[2]
         f = gzip.open(file_name)
         header = f.readline()  # Skip header
         filehandles.append(f)
-    return sample_ids, filehandles, np.asarray(environmental_vars), np.asarray(cell_lines)
+    return sample_ids, filehandles, np.asarray(environmental_vars), np.asarray(cell_lines), np.asarray(cell_line_pc1)
 
 def extract_number_of_tests(joint_test_input_file):
     # Extract the cht input filename for one sample
@@ -558,6 +560,13 @@ def make_gene_mapping(target_region_input_file):
     return gene_mapping
 
 
+def get_average_pc1_for_genotype_group(cell_line_pc1, round_genotype, geno):
+    geno_indices = np.where(round_genotype == geno)[0]
+    if len(geno_indices) == 0:
+        return 'NA'
+    else:
+        return str(np.mean(np.unique(cell_line_pc1[geno_indices])))
+
 ###########################
 # Command Line args
 ###########################
@@ -590,7 +599,7 @@ num_tests = extract_number_of_tests(joint_test_input_file)
 ## 2. Filehandles opening input cht files
 ## 3. Environmental variables
 ## 4. library size correction factors
-sample_ids, filehandles, environmental_vars, cell_lines = parse_joint_test_input_file(joint_test_input_file)
+sample_ids, filehandles, environmental_vars, cell_lines, cell_line_pc1 = parse_joint_test_input_file(joint_test_input_file)
 library_size_correction_factors = parse_correction_factor_file(correction_factor_file)
 
 # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
@@ -613,6 +622,8 @@ for test_number in range(num_tests):
     # Only perform analysis on hits
     if rs_id + '_' + ensamble_id not in hits:
         continue
+    counter = counter + 1
+    print(counter)
     hit_dicti = hits[rs_id + '_' + ensamble_id]
     # Re-organize test_infos data so that it is in a better format
     # Specifically, we will extract a vector of length == Number_of_samples of:
@@ -622,13 +633,18 @@ for test_number in range(num_tests):
     ### 4. Genotype on allele_2 (h_2)
     gene_counts, dosage, h_1, h_2 = reorganize_data(test_infos)
 
+    # Get average PC1 loading for samples in each genotype bin
+    round_genotype = np.round(dosage).astype(int)
+    pc1_geno_0 = get_average_pc1_for_genotype_group(cell_line_pc1, round_genotype, 0)
+    pc1_geno_1 = get_average_pc1_for_genotype_group(cell_line_pc1, round_genotype, 1)
+    pc1_geno_2 = get_average_pc1_for_genotype_group(cell_line_pc1, round_genotype, 2)
 
     genotype = np.round(dosage).astype(int).astype(str)
     gene_counts = gene_counts/library_size_correction_factors
 
 
     t.write(ensamble_id + '\t' + rs_id + '\t' + str(hit_dicti['pvalue']) + '\t' + str(hit_dicti['beta']) + '\t' + ';'.join(np.asarray(environmental_vars).astype(str)) + '\t')
-    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype))
+    t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype) + '\t' + pc1_geno_0 + ',' + pc1_geno_1 + ',' + pc1_geno_2)
 
     t.write('\n')
     t.flush()
