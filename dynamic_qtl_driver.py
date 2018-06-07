@@ -38,6 +38,21 @@ def load_in_null_data(gene_counts, dosage, environmental_vars, library_size_corr
         covariate_interaction_arr3 = covs['cell_line_pc3']*environmental_vars
         covariate_interaction_mat3 = np.transpose(np.asmatrix(covariate_interaction_arr3))
         x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1, covariate_interaction_mat2, covariate_interaction_mat3))
+    elif covariate_method == 'hmm_2_groupingXtime':
+        covariate_interaction_arr1 = covs['hmm_2_grouping_a']* environmental_vars
+        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
+        covariate_interaction_arr2 = covs['hmm_2_grouping_b']* environmental_vars
+        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))
+        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1, covariate_interaction_mat2))
+    elif covariate_method == 'hmm_3_groupingXtime':
+        covariate_interaction_arr1 = covs['hmm_3_grouping_a']* environmental_vars
+        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
+        covariate_interaction_arr2 = covs['hmm_3_grouping_b']* environmental_vars
+        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))
+        covariate_interaction_arr3 = covs['hmm_3_grouping_c']* environmental_vars
+        covariate_interaction_mat3 = np.transpose(np.asmatrix(covariate_interaction_arr3))
+        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1, covariate_interaction_mat2, covariate_interaction_mat3))
+
     data = dict(N=N, P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, gene_counts=gene_counts, concShape=1.001, concRate=0.001)
     return data
 
@@ -262,6 +277,22 @@ def load_in_full_data(gene_counts, dosage, environmental_vars, library_size_corr
         covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))       
         covariate_interaction_arr3 = covs['cell_line_pc3']*environmental_vars
         covariate_interaction_mat3 = np.transpose(np.asmatrix(covariate_interaction_arr3))  
+        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1,covariate_interaction_mat2, covariate_interaction_mat3, interaction_mat))
+        null_data['x_1'] = x_1[:,:-1]
+    elif covariate_method == 'hmm_2_groupingXtime':
+        covariate_interaction_arr1 = covs['hmm_2_grouping_a']* environmental_vars
+        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
+        covariate_interaction_arr2 = covs['hmm_2_grouping_b']* environmental_vars
+        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))
+        x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1,covariate_interaction_mat2, interaction_mat))
+        null_data['x_1'] = x_1[:,:-1]
+    elif covariate_method == 'hmm_3_groupingXtime':
+        covariate_interaction_arr1 = covs['hmm_3_grouping_a']* environmental_vars
+        covariate_interaction_mat1 = np.transpose(np.asmatrix(covariate_interaction_arr1))
+        covariate_interaction_arr2 = covs['hmm_3_grouping_b']* environmental_vars
+        covariate_interaction_mat2 = np.transpose(np.asmatrix(covariate_interaction_arr2))
+        covariate_interaction_arr3 = covs['hmm_3_grouping_c']* environmental_vars
+        covariate_interaction_mat3 = np.transpose(np.asmatrix(covariate_interaction_arr3))
         x_1 = np.hstack((intercept, env_mat, dosage_mat, covariate_interaction_mat1,covariate_interaction_mat2, covariate_interaction_mat3, interaction_mat))
         null_data['x_1'] = x_1[:,:-1]
     full_data = dict(N=N, P=x_1.shape[1], library_size=library_size_correction_factors, x_1=x_1, gene_counts=gene_counts, concShape=1.001, concRate=0.001)

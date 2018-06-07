@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=3:00:00 --partition=broadwl --mem=5GB
+#SBATCH --time=3:00:00 --partition=gilad --mem=5GB
 
 
 parameter_string="$1"
@@ -24,19 +24,19 @@ min_num_het_test_variant_biallelic_samples="${12}"
 real_parameter_string=$qtl_results_dir$parameter_string"_permutation_scheme_none_permute_False"
 
 real_merged_results=$real_parameter_string"_merged_dynamic_qtl_results.txt"
-#python merge_dynamic_qtl_runs.py $real_parameter_string $real_merged_results $target_region_input_file $total_jobs
+python merge_dynamic_qtl_runs.py $real_parameter_string $real_merged_results $target_region_input_file $total_jobs
 
 
 
 # For permuted data
 perm_parameter_string=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_True"
 perm_merged_results=$perm_parameter_string"_merged_dynamic_qtl_results.txt"
-# python merge_dynamic_qtl_runs.py $perm_parameter_string $perm_merged_results $target_region_input_file $total_jobs
+python merge_dynamic_qtl_runs.py $perm_parameter_string $perm_merged_results $target_region_input_file $total_jobs
 
 mod_parameter_string=$parameter_string"_permutation_scheme_"$permutation_scheme
 
 
-#Rscript visualize_dynamic_qtls.R $real_merged_results $perm_merged_results $mod_parameter_string $qtl_visualization_dir 
+Rscript visualize_dynamic_qtls.R $real_merged_results $perm_merged_results $mod_parameter_string $qtl_visualization_dir 
 
 #######################################################
 # Part 2: Run FDR correction using real and permuted
@@ -48,7 +48,7 @@ echo "starting"
 # output file for eFDR analysis
 efdr_file=$qtl_results_dir$mod_parameter_string"_eFDR_results.txt"
 # Run eFDR correction
-#Rscript eFDR_correction.R $real_merged_results $perm_merged_results $efdr_file
+Rscript eFDR_correction.R $real_merged_results $perm_merged_results $efdr_file
 
 
 fdr_thresh=".05"
@@ -57,7 +57,7 @@ fdr_thresh=".05"
 significant_efdr_results=$qtl_results_dir$mod_parameter_string"_efdr_"$fdr_thresh"_significant.txt"
 # Output file for significant egenes and their strongest associated variant
 significant_efdr_gene_results=$qtl_results_dir$mod_parameter_string"_efdr_"$fdr_thresh"_significant_egenes.txt"
-#python assess_significance_efdr_approach.py $efdr_file $real_merged_results $significant_efdr_results $significant_efdr_gene_results $fdr_thresh
+python assess_significance_efdr_approach.py $efdr_file $real_merged_results $significant_efdr_results $significant_efdr_gene_results $fdr_thresh
 
 
 
@@ -67,7 +67,7 @@ fdr_thresh=".01"
 significant_efdr_results=$qtl_results_dir$mod_parameter_string"_efdr_"$fdr_thresh"_significant.txt"
 # Output file for significant egenes and their strongest associated variant
 significant_efdr_gene_results=$qtl_results_dir$mod_parameter_string"_efdr_"$fdr_thresh"_significant_egenes.txt"
-#python assess_significance_efdr_approach.py $efdr_file $real_merged_results $significant_efdr_results $significant_efdr_gene_results $fdr_thresh
+python assess_significance_efdr_approach.py $efdr_file $real_merged_results $significant_efdr_results $significant_efdr_gene_results $fdr_thresh
 
 
 
@@ -83,7 +83,7 @@ echo "Start"
 # python organize_significant_hits_null.py $mod_parameter_string $qtl_results_dir $joint_test_input_file $correction_factor_file $qtl_visualization_dir $parameter_string $target_region_input_file
 
 
-Rscript visualize_significant_hits.R $mod_parameter_string $qtl_visualization_dir "/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data_te/temper_debug/te_quadratic_basis_round_genotype_null_hits/"
+# Rscript visualize_significant_hits.R $mod_parameter_string $qtl_visualization_dir "/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data_te/temper_debug/te_quadratic_basis_round_genotype_null_hits/"
 
 if false; then
 

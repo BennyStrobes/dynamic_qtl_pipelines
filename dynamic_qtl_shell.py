@@ -21,6 +21,11 @@ def parse_joint_test_input_file(joint_test_input_file):
     pc1 = []
     pc2 = []
     pc3 = []
+    hmm_2_grouping_a = []
+    hmm_2_grouping_b = []
+    hmm_3_grouping_a = []
+    hmm_3_grouping_b = []
+    hmm_3_grouping_c = []
     # Open input filehandle
     f = open(joint_test_input_file)
     head_count = 0  # skip header
@@ -41,6 +46,30 @@ def parse_joint_test_input_file(joint_test_input_file):
         pc1.append(float(data[5]))
         pc2.append(float(data[6]))
         pc3.append(float(data[7]))
+        hmm_2_grouping = int(data[8])
+        if hmm_2_grouping == 0:
+            hmm_2_grouping_a.append(1)
+            hmm_2_grouping_b.append(0)
+        else:
+            if hmm_2_grouping != 1:
+                print('ASSUMPTIONER EROROR')
+            hmm_2_grouping_a.append(0)
+            hmm_2_grouping_b.append(1)
+        hmm_3_grouping = int(data[9])
+        if hmm_3_grouping == 0:
+            hmm_3_grouping_a.append(1)
+            hmm_3_grouping_b.append(0)
+            hmm_3_grouping_c.append(0)
+        elif hmm_3_grouping == 1:
+            hmm_3_grouping_a.append(0)
+            hmm_3_grouping_b.append(1)
+            hmm_3_grouping_c.append(0)
+        else:
+            if hmm_3_grouping != 2:
+                print('ASSUMPTION ERRORORO')
+            hmm_3_grouping_a.append(0)
+            hmm_3_grouping_b.append(0)
+            hmm_3_grouping_c.append(1) 
         # Add filehandle
         file_name = data[2]
 
@@ -53,6 +82,12 @@ def parse_joint_test_input_file(joint_test_input_file):
     cov['cell_line_pc1'] = np.asarray(pc1)
     cov['cell_line_pc2'] = np.asarray(pc2)
     cov['cell_line_pc3'] = np.asarray(pc3)
+    cov['hmm_2_grouping_a'] = np.asarray(hmm_2_grouping_a)
+    cov['hmm_2_grouping_b'] = np.asarray(hmm_2_grouping_b)
+    cov['hmm_3_grouping_a'] = np.asarray(hmm_3_grouping_a)
+    cov['hmm_3_grouping_b'] = np.asarray(hmm_3_grouping_b)
+    cov['hmm_3_grouping_c'] = np.asarray(hmm_3_grouping_c)
+
     return sample_ids, filehandles, np.asarray(environmental_vars), cov
 
 # Parse through correction_factor_file to extract ordered list of:

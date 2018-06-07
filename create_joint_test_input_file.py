@@ -122,7 +122,23 @@ def extract_cell_line_pc(cell_line_pc_file, sample_name, pc_num):
         if data[0] == cell_liner:
             return data[pc_num]
 
-
+def get_hmm_cell_line_grouping(hmm_cell_line_groupings_file, sample_name):
+    head_count = 0  # Skip header
+    cell_line = sample_name.split('_')[0]
+    f = open(hmm_cell_line_groupings_file)
+    for line in f:
+        line = line.rstrip()
+        data = line.split(',')
+        if head_count == 0:
+            head_count = head_count + 1
+            continue
+        cell_line_cur = data[0]
+        state = data[1]
+        if cell_line_cur == cell_line:
+            return state
+    f.close()
+    print('fundamentla assumption error')
+    pdb.set_trace()
 
 input_directory = sys.argv[1]  # Directory containing all CHT input files
 output_file = sys.argv[2]  # Output file
@@ -132,9 +148,11 @@ pseudotime_predictions_4_file = sys.argv[5]
 pseudotime_predictions_5_file = sys.argv[6]
 total_expression_file = sys.argv[7]
 cell_line_pc_file = sys.argv[8]
+hmm_cell_line_groupings_8_state_file = sys.argv[9]
+hmm_cell_line_groupings_12_state_file = sys.argv[10]
 
 t = open(output_file, 'w')  # Open output file handle
-t.write('sample_id\tenvironmental_variable\tcht_input_file\ttroponin_t15\tpseudotime_5\tcell_line_pc1\tcell_line_pc2\tcell_line_pc3\n')
+t.write('sample_id\tenvironmental_variable\tcht_input_file\ttroponin_t15\tpseudotime_5\tcell_line_pc1\tcell_line_pc2\tcell_line_pc3\thmm_cell_line_grouping_8_state\thmm_cell_line_grouping_12_state\n')
 
 for file_name in sorted(os.listdir(input_directory)):
     if file_name.startswith('haplotype_read_counts_rand_hap') == False:
@@ -174,6 +192,10 @@ for file_name in sorted(os.listdir(input_directory)):
     cell_line_pc1 = extract_cell_line_pc(cell_line_pc_file, sample_name, 1)
     cell_line_pc2 = extract_cell_line_pc(cell_line_pc_file, sample_name, 2)
     cell_line_pc3 = extract_cell_line_pc(cell_line_pc_file, sample_name, 3)
+
+    hmm_cell_line_grouping_8_state = get_hmm_cell_line_grouping(hmm_cell_line_groupings_8_state_file, sample_name)
+    hmm_cell_line_grouping_12_state = get_hmm_cell_line_grouping(hmm_cell_line_groupings_12_state_file, sample_name)
+
     # Print information to output file
-    t.write(sample_name + '\t' + environmental_variable + '\t' + input_directory + file_name + '\t' + troponin_expression + '\t' + pseudotime_variable + '\t' + cell_line_pc1 + '\t' + cell_line_pc2 + '\t' + cell_line_pc3 + '\n')
+    t.write(sample_name + '\t' + environmental_variable + '\t' + input_directory + file_name + '\t' + troponin_expression + '\t' + pseudotime_variable + '\t' + cell_line_pc1 + '\t' + cell_line_pc2 + '\t' + cell_line_pc3 + '\t' + hmm_cell_line_grouping_8_state + '\t' + hmm_cell_line_grouping_12_state + '\n')
 t.close()
