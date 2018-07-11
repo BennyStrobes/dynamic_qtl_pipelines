@@ -98,8 +98,11 @@ gene_counts = convert_data_to_matrix(conversions)
 # Get data into corect format for pystan
 data = dict(N=gene_counts.shape[0], P=gene_counts.shape[1], gene_counts=gene_counts, concShape=1.01, concRate=0.01)
 
+# Initialize correction factors to observed library sizes
+init_param = dict(library_size=library_sizes)
+
 # Run pystan optimization
-op = sm.optimizing(data=data)
+op = sm.optimizing(data=data, init=init_param)
 
 # Print library sizes
 t = open(correction_factor_file, 'w')

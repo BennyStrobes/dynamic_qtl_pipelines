@@ -51,7 +51,7 @@ visualization_dir = args[2]
 output_dir = args[3]
 
 
-input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_summary.txt")
+input_file <- paste0(visualization_dir, parameter_string, "_dynamic_qtl_hits_summary_cell_line_fixed_effect_pc1_3Xtime.txt")
 print(input_file)
 stop = FALSE
 f = file(input_file, "r")
@@ -63,14 +63,14 @@ while(!stop) {
   pvalue <- data[3]
 
   beta <- data[4]
-  # environmental_vars <- as.numeric(strsplit(data[5],';')[[1]])
+  environmental_vars <- as.numeric(strsplit(data[5],';')[[1]])
   gene_counts <- as.numeric(strsplit(data[6],';')[[1]])
   genotype <- as.numeric(strsplit(data[7],';')[[1]])
-  environmental_vars <- as.numeric(strsplit(data[8],',')[[1]])
+  #environmental_vars <- as.numeric(strsplit(data[8],',')[[1]])
 
-  te_df <- data.frame(gene_counts=log(gene_counts), time_step=factor(environmental_vars), genotype=factor(genotype))
+  te_df <- data.frame(gene_counts=gene_counts, time_step=factor(environmental_vars), genotype=factor(genotype))
 
-  output_file <- paste0(output_dir, parameter_string, "_", ensamble_id, "_", rs_id, "_dynamic_qtl_hit.png")
+  output_file <- paste0(output_dir, parameter_string, "_", ensamble_id, "_", rs_id, "_dynamic_qtl_hit_cell_line_fixed_effect_pc1_3Xtime.png")
 
   te_plot <- make_te_plot(ensamble_id, rs_id, pvalue, beta, te_df, nb_conc)
   ggsave(te_plot, file=output_file, width=24, height=10.5, units="cm")

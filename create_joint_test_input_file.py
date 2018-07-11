@@ -143,16 +143,14 @@ def get_hmm_cell_line_grouping(hmm_cell_line_groupings_file, sample_name):
 input_directory = sys.argv[1]  # Directory containing all CHT input files
 output_file = sys.argv[2]  # Output file
 environmental_variable_form = sys.argv[3]  # String option describing how to parameterize the environmetal variable
-pseudotime_predictions_3_file = sys.argv[4]
-pseudotime_predictions_4_file = sys.argv[5]
-pseudotime_predictions_5_file = sys.argv[6]
-total_expression_file = sys.argv[7]
-cell_line_pc_file = sys.argv[8]
-hmm_cell_line_groupings_8_state_file = sys.argv[9]
-hmm_cell_line_groupings_12_state_file = sys.argv[10]
+total_expression_file = sys.argv[4]
+cell_line_pc_file = sys.argv[5]
+hmm_cell_line_groupings_8_state_file = sys.argv[6]
+hmm_cell_line_groupings_12_state_file = sys.argv[7]
+hmm_cell_line_groupings_16_state_file = sys.argv[8]
 
 t = open(output_file, 'w')  # Open output file handle
-t.write('sample_id\tenvironmental_variable\tcht_input_file\ttroponin_t15\tpseudotime_5\tcell_line_pc1\tcell_line_pc2\tcell_line_pc3\thmm_cell_line_grouping_8_state\thmm_cell_line_grouping_12_state\n')
+t.write('sample_id\tenvironmental_variable\tcht_input_file\ttroponin_t15\tcell_line_pc1\tcell_line_pc2\tcell_line_pc3\tcell_line_pc4\tcell_line_pc5\thmm_cell_line_grouping_8_state\thmm_cell_line_grouping_12_state\thmm_cell_line_grouping_16_state\n')
 
 for file_name in sorted(os.listdir(input_directory)):
     if file_name.startswith('haplotype_read_counts_rand_hap') == False:
@@ -164,12 +162,6 @@ for file_name in sorted(os.listdir(input_directory)):
     # Extract environmental variable (depends on environmental_variable_form)
     if environmental_variable_form == 'time_steps':
         environmental_variable = extract_environmental_variable_time_step_form(sample_name)
-    elif environmental_variable_form == 'pseudotime_predictions_3':
-        environmental_variable = extract_environmental_variable_pseudotime_form(sample_name, pseudotime_predictions_3_file)
-    elif environmental_variable_form == 'pseudotime_predictions_4':
-        environmental_variable = extract_environmental_variable_pseudotime_form(sample_name, pseudotime_predictions_4_file)
-    elif environmental_variable_form == 'pseudotime_predictions_5':
-        environmental_variable = extract_environmental_variable_pseudotime_form(sample_name, pseudotime_predictions_5_file)
     elif environmental_variable_form == 'uniform_4':
         environmental_variable = extract_environmental_variable_uniform_form(sample_name, 4)
     elif environmental_variable_form == 'median_pseudotime_4':
@@ -187,15 +179,17 @@ for file_name in sorted(os.listdir(input_directory)):
         continue
     troponin_expression = get_troponin_expression(sample_name, total_expression_file)
 
-    pseudotime_variable = extract_cell_lines_largest_pseudotime_variable(sample_name, pseudotime_predictions_5_file)
-
     cell_line_pc1 = extract_cell_line_pc(cell_line_pc_file, sample_name, 1)
     cell_line_pc2 = extract_cell_line_pc(cell_line_pc_file, sample_name, 2)
     cell_line_pc3 = extract_cell_line_pc(cell_line_pc_file, sample_name, 3)
+    cell_line_pc4 = extract_cell_line_pc(cell_line_pc_file, sample_name, 4)
+    cell_line_pc5 = extract_cell_line_pc(cell_line_pc_file, sample_name, 5)
+
 
     hmm_cell_line_grouping_8_state = get_hmm_cell_line_grouping(hmm_cell_line_groupings_8_state_file, sample_name)
     hmm_cell_line_grouping_12_state = get_hmm_cell_line_grouping(hmm_cell_line_groupings_12_state_file, sample_name)
+    hmm_cell_line_grouping_16_state = get_hmm_cell_line_grouping(hmm_cell_line_groupings_16_state_file, sample_name)
 
     # Print information to output file
-    t.write(sample_name + '\t' + environmental_variable + '\t' + input_directory + file_name + '\t' + troponin_expression + '\t' + pseudotime_variable + '\t' + cell_line_pc1 + '\t' + cell_line_pc2 + '\t' + cell_line_pc3 + '\t' + hmm_cell_line_grouping_8_state + '\t' + hmm_cell_line_grouping_12_state + '\n')
+    t.write(sample_name + '\t' + environmental_variable + '\t' + input_directory + file_name + '\t' + troponin_expression + '\t' + cell_line_pc1 + '\t' + cell_line_pc2 + '\t' + cell_line_pc3 + '\t' + cell_line_pc4 + '\t' + cell_line_pc5 + '\t' + hmm_cell_line_grouping_8_state + '\t' + hmm_cell_line_grouping_12_state + '\t' + hmm_cell_line_grouping_16_state + '\n')
 t.close()

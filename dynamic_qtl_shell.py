@@ -2,6 +2,8 @@ import numpy as np
 import os
 import pdb
 import sys
+import pickle
+import pystan
 import gzip
 from dynamic_qtl_driver import dynamic_qtl
 
@@ -21,11 +23,17 @@ def parse_joint_test_input_file(joint_test_input_file):
     pc1 = []
     pc2 = []
     pc3 = []
+    pc4 = []
+    pc5 = []
     hmm_2_grouping_a = []
     hmm_2_grouping_b = []
     hmm_3_grouping_a = []
     hmm_3_grouping_b = []
     hmm_3_grouping_c = []
+    hmm_4_grouping_a = []
+    hmm_4_grouping_b = []
+    hmm_4_grouping_c = []
+    hmm_4_grouping_d =[]
     # Open input filehandle
     f = open(joint_test_input_file)
     head_count = 0  # skip header
@@ -42,11 +50,12 @@ def parse_joint_test_input_file(joint_test_input_file):
         sample_ids.append(sample_id)
         environmental_vars.append(environmental_var)
         t15_cov.append(float(data[3]))
-        final_pseudotime_cov.append(float(data[4]))
-        pc1.append(float(data[5]))
-        pc2.append(float(data[6]))
-        pc3.append(float(data[7]))
-        hmm_2_grouping = int(data[8])
+        pc1.append(float(data[4]))
+        pc2.append(float(data[5]))
+        pc3.append(float(data[6]))
+        pc4.append(float(data[7]))
+        pc5.append(float(data[8]))
+        hmm_2_grouping = int(data[9])
         if hmm_2_grouping == 0:
             hmm_2_grouping_a.append(1)
             hmm_2_grouping_b.append(0)
@@ -55,7 +64,7 @@ def parse_joint_test_input_file(joint_test_input_file):
                 print('ASSUMPTIONER EROROR')
             hmm_2_grouping_a.append(0)
             hmm_2_grouping_b.append(1)
-        hmm_3_grouping = int(data[9])
+        hmm_3_grouping = int(data[10])
         if hmm_3_grouping == 0:
             hmm_3_grouping_a.append(1)
             hmm_3_grouping_b.append(0)
@@ -70,6 +79,29 @@ def parse_joint_test_input_file(joint_test_input_file):
             hmm_3_grouping_a.append(0)
             hmm_3_grouping_b.append(0)
             hmm_3_grouping_c.append(1) 
+        hmm_4_grouping = int(data[11])
+        if hmm_4_grouping == 0:
+            hmm_4_grouping_a.append(1)
+            hmm_4_grouping_b.append(0)
+            hmm_4_grouping_c.append(0)
+            hmm_4_grouping_d.append(0)
+        elif hmm_4_grouping == 1:
+            hmm_4_grouping_a.append(0)
+            hmm_4_grouping_b.append(1)
+            hmm_4_grouping_c.append(0)
+            hmm_4_grouping_d.append(0)
+        elif hmm_4_grouping == 2:
+            hmm_4_grouping_a.append(0)
+            hmm_4_grouping_b.append(0)
+            hmm_4_grouping_c.append(1)
+            hmm_4_grouping_d.append(0)
+        elif hmm_4_grouping == 3:
+            hmm_4_grouping_a.append(0)
+            hmm_4_grouping_b.append(0)
+            hmm_4_grouping_c.append(0)
+            hmm_4_grouping_d.append(1)
+        else:
+            print('assumption error!')
         # Add filehandle
         file_name = data[2]
 
@@ -82,11 +114,19 @@ def parse_joint_test_input_file(joint_test_input_file):
     cov['cell_line_pc1'] = np.asarray(pc1)
     cov['cell_line_pc2'] = np.asarray(pc2)
     cov['cell_line_pc3'] = np.asarray(pc3)
+    cov['cell_line_pc4'] = np.asarray(pc4)
+    cov['cell_line_pc5'] = np.asarray(pc5)
     cov['hmm_2_grouping_a'] = np.asarray(hmm_2_grouping_a)
     cov['hmm_2_grouping_b'] = np.asarray(hmm_2_grouping_b)
     cov['hmm_3_grouping_a'] = np.asarray(hmm_3_grouping_a)
     cov['hmm_3_grouping_b'] = np.asarray(hmm_3_grouping_b)
     cov['hmm_3_grouping_c'] = np.asarray(hmm_3_grouping_c)
+    cov['hmm_4_grouping_a'] = np.asarray(hmm_4_grouping_a)
+    cov['hmm_4_grouping_b'] = np.asarray(hmm_4_grouping_b)
+    cov['hmm_4_grouping_c'] = np.asarray(hmm_4_grouping_c)
+    cov['hmm_4_grouping_d'] = np.asarray(hmm_4_grouping_d)
+
+
 
     return sample_ids, filehandles, np.asarray(environmental_vars), cov
 
@@ -320,6 +360,14 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
     t = open(output_stem + 'dynamic_qtl_results.txt', 'w')
 
     
+    # Load in correct model
+    if model_version == 'te_log_linear' or model_version == 'te_log_linear_quadratic_basis':
+        #sm = pystan.StanModel(file='te_log_linear.stan')
+        #f = open('te_log_linear.pkl','wb')
+        #pickle.dump(sm, f)
+        #f.close()
+        sm = pickle.load(open('te_log_linear.pkl', 'rb'))
+
     # Loop through each of the tests
     for test_number in range(num_tests):
         # Extract one line from each file handle and put into ordered list
@@ -345,12 +393,12 @@ def run_analysis(joint_test_input_file, correction_factor_file, model_version, o
             dosage = np.round(dosage)
 
         # Run dynamic qtl test
-        result = dynamic_qtl(gene_counts, dosage, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, covs, covariate_method)
+        result = dynamic_qtl(gene_counts, dosage, environmental_vars, library_size_correction_factors, model_version, permute, optimization_method, cell_line_indices, permutation_scheme, covs, covariate_method, sm)
         # Print results to output file
         t.write('\t'.join(test_infos[0][0:5]) + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         # t.write(test_infos[0][0] + '\t' +  test_infos[0][1] + '\t' + test_infos[0][2].split("'")[1] + '\t' + test_infos[0][3].split("'")[1] + '\t' + test_infos[0][4].split("'")[1] + '\t' + test_infos[0][7] + '\t' + test_infos[0][8] + '\t' + str(result['loglike_null']) + '\t' + str(result['loglike_full']) + '\t')
         if model_version == 'te_log_linear':
-            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(result['fit_full']['par']['beta'][-1]) + '\t' + 'NA' + '\n')
+            t.write(str(result['loglr']) + '\t' + str(result['pvalue']) + '\t' + str(','.join(np.asarray(result['fit_full']['par']['beta']).astype(str))) + '\t' + 'NA' + '\n')
         if np.mod(test_number, 10) == 0:
             t.flush()
     t.close()

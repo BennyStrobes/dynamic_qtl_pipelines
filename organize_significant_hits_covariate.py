@@ -649,6 +649,16 @@ def make_gene_mapping(target_region_input_file):
     return gene_mapping
 
 
+def correct_gene_counts_for_cell_line_fixed_effect_pc1_3Xtime(gene_counts, covs, environmental_vars, beta_string):
+    beta = np.asarray(beta_string.split(',')).astype(float)
+    gene_counts = gene_counts - (beta[3])*(covs['cell_line_pc1'])
+    gene_counts = gene_counts - (beta[4])*(environmental_vars*covs['cell_line_pc1'])
+    gene_counts = gene_counts - (beta[5])*(covs['cell_line_pc2'])
+    gene_counts = gene_counts - (beta[6])*(environmental_vars*covs['cell_line_pc2'])
+    gene_counts = gene_counts - (beta[7])*(covs['cell_line_pc3'])
+    gene_counts = gene_counts - (beta[8])*(environmental_vars*covs['cell_line_pc3'])
+    return gene_counts
+
 ###########################
 # Command Line args
 ###########################
@@ -659,13 +669,14 @@ correction_factor_file = sys.argv[4]
 qtl_visualization_dir = sys.argv[5]
 short_parameter_string = sys.argv[6]
 target_region_input_file = sys.argv[7]
+covariate_method = sys.argv[8]
 
 ############################################
 # Extract vector of length number of tests where each element is a tuple
 # The first element in the tuple is a binary variable that is a 1 if that variant-gene pair is a highest
 # The second element of the tuple is a list of information describing the variant gene pair
 all_hits_file = qtl_results_dir + short_parameter_string + '_permutation_scheme_none_permute_False_merged_dynamic_qtl_results.txt'
-egenes_file = qtl_results_dir + parameter_string + '_efdr_.01_significant_egenes.txt'
+egenes_file = qtl_results_dir + parameter_string + '_efdr_.05_significant_egenes.txt'
 hits = extract_hits_vector(egenes_file, all_hits_file)
 #hits = extract_hits_vector_v2(all_hits_file)
 
@@ -684,10 +695,11 @@ num_tests = extract_number_of_tests(joint_test_input_file)
 sample_ids, filehandles, environmental_vars, cov = parse_joint_test_input_file(joint_test_input_file)
 library_size_correction_factors = parse_correction_factor_file(correction_factor_file)
 
+
 # Create dictionary the maps cell_line ids to an integer array. Where the array contains indices of each of the samples in that cell line
 cell_line_indices = get_cell_line_indices(joint_test_input_file)
 
-output_file = qtl_visualization_dir + parameter_string + '_dynamic_qtl_hits_summary.txt'
+output_file = qtl_visualization_dir + parameter_string + '_dynamic_qtl_hits_summary_' + covariate_method + '.txt'
 
 t = open(output_file, 'w')
 
@@ -717,6 +729,8 @@ for test_number in range(num_tests):
     genotype = np.round(dosage).astype(int).astype(str)
     gene_counts = np.log(gene_counts/library_size_correction_factors)
 
+    if covariate_method == 'cell_line_fixed_effect_pc1_3Xtime':
+        gene_counts = correct_gene_counts_for_cell_line_fixed_effect_pc1_3Xtime(gene_counts, cov, environmental_vars, hit_dicti['beta'])
 
     t.write(ensamble_id + '\t' + rs_id + '\t' + str(hit_dicti['pvalue']) + '\t' + str(hit_dicti['beta']) + '\t' + ';'.join(np.asarray(environmental_vars).astype(str)) + '\t')
     t.write(';'.join(np.asarray(gene_counts).astype(str)) + '\t' + ';'.join(genotype))

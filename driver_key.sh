@@ -11,43 +11,44 @@
 # Directory created by "time_step_independent_qtl_pipelines" scripts
 # Contains 1 file per sample with information on each test (variant, target region)
 # Each file (sample) has the same number of lines (tests)
-cht_input_file_dir="/project2/gilad/bstrober/ipsc_differentiation/time_step_independent_qtl_pipelines/wasp/cht_input_files/"
+cht_input_file_dir="/project2/gilad/bstrober/ipsc_differentiation_19_lines/time_step_independent_qtl_pipelines/wasp/cht_input_files/"
 
 # File containing all of the target regions we are using. We are using this file to convert from gene positions to ensable id
-target_region_input_file="/project2/gilad/bstrober/ipsc_differentiation/time_step_independent_qtl_pipelines/wasp/target_regions/target_regions_cis_distance_50000_maf_cutoff_0.1_min_reads_90_min_as_reads_20_min_het_counts_4_merged.txt"
+target_region_input_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/time_step_independent_qtl_pipelines/wasp/target_regions/target_regions_cis_distance_50000_maf_cutoff_0.1_min_reads_100_min_as_reads_25_min_het_counts_5_merged.txt"
 
 # File containing conversions from ensamble ids to gene symbols
-gencode_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/gencode.v19.annotation.gtf.gz"
+gencode_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/gencode.v19.annotation.gtf.gz"
 
 # Files containing mapping from sample id to Nirmal's pseudotime predictions
 # 3 state HMM
-pseudotime_predictions_3_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/3_state_output_14.csv"
+# pseudotime_predictions_3_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/3_state_output_14.csv"
 # 4 state HMM
-pseudotime_predictions_4_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/4_state_output_14.csv"
+# pseudotime_predictions_4_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/4_state_output_14.csv"
 # 5 state HMM
-pseudotime_predictions_5_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/5_state_output_14.csv"
+# pseudotime_predictions_5_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/pseudotime_predictions_14_lines/5_state_output_14.csv"
 
 
 # Files containing cell line groupings assigned from hmm mixture model
 # 8 state HMM (2 trajectories)
-hmm_cell_line_groupings_8_state="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/mixture_hmm_cell_line_groupings/8state"
+hmm_cell_line_groupings_8_state="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/mixture_hmm_cell_line_groupings/8state"
 # 12 state HMM (3 trajectories)
-hmm_cell_line_groupings_12_state="/project2/gilad/bstrober/ipsc_differentiation/preprocess_input_data/mixture_hmm_cell_line_groupings/12state"
-
+hmm_cell_line_groupings_12_state="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/mixture_hmm_cell_line_groupings/12state"
+# 16 state HMM (4 trajectories)
+hmm_cell_line_groupings_16_state="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess_input_data/mixture_hmm_cell_line_groupings/16state"
 
 
 
 # cell line specific principal components
-cell_line_pc_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess/covariates/cell_line_ignore_missing_principal_components_5.txt"
+cell_line_pc_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess/covariates/cell_line_ignore_missing_principal_components_5.txt"
 
-total_expression_file="/project2/gilad/bstrober/ipsc_differentiation/preprocess/processed_total_expression/quantile_normalized.txt"
+total_expression_file="/project2/gilad/bstrober/ipsc_differentiation_19_lines/preprocess/processed_total_expression/quantile_normalized.txt"
 
 ###############################################################################
 # Output directories (aasume all of these exist prior to starting analysis)
 ###############################################################################
 
 # Root directory for this of all ipsc data based results
-output_root="/project2/gilad/bstrober/ipsc_differentiation/dynamic_qtl_pipelines/ipsc_data_te/"
+output_root="/project2/gilad/bstrober/ipsc_differentiation_19_lines/dynamic_qtl_pipelines/ipsc_data_te/"
 
 # Directory containing necessary input files to qtl tests
 input_data_dir=$output_root"input_data/"
@@ -90,9 +91,8 @@ qtl_visualization_dir=$output_root"qtl_visualization/"
 ### 8. 'time_steps_max_9': raw time format, but do not include any samples where time is greater than 9
 environmental_variable_form="time_steps"
 joint_test_input_file=$input_data_dir"joint_test_input_file_"$environmental_variable_form".txt"
-
 if false; then
-python create_joint_test_input_file.py $cht_input_file_dir $joint_test_input_file $environmental_variable_form $pseudotime_predictions_3_file $pseudotime_predictions_4_file $pseudotime_predictions_5_file $total_expression_file $cell_line_pc_file $hmm_cell_line_groupings_8_state $hmm_cell_line_groupings_12_state
+python create_joint_test_input_file.py $cht_input_file_dir $joint_test_input_file $environmental_variable_form $total_expression_file $cell_line_pc_file $hmm_cell_line_groupings_8_state $hmm_cell_line_groupings_12_state $hmm_cell_line_groupings_16_state
 fi
 
 
@@ -134,14 +134,24 @@ optimization_method="LBFGS"
 ### 3. "cell_line_pc1Xtime"
 ### 4. "cell_line_pc1_2Xtime"
 ### 5. "cell_line_pc1_3Xtime"
+### 5. "cell_line_pc1_4Xtime"
 ### 6. "hmm_2_groupingXtime"
 ### 7. "hmm_3_groupingXtime"
-covariate_method="hmm_3_groupingXtime"
+### 8 . "hmm_4_groupingXtime"
+### 9. "cell_line_fixed_effect_pc1Xtime"
+### 10. "cell_line_fixed_effect_pc1_2Xtime"
+### 11. "cell_line_fixed_effect_pc1_3Xtime"
+### 12. "cell_line_fixed_effect_pc1_4Xtime"
+### 12. "hmm_2_fixed_effect_groupingXtime"
+### 13. "hmm_3_fixed_effect_groupingXtime"
+### 14. "hmm_4_fixed_effect_groupingXtime"
+
+covariate_method="cell_line_fixed_effect_pc1_3Xtime"
 
 # Genotype_version
 ### 1. "dosage"
 ### 2. "round"
-genotype_version="round"
+genotype_version="dosage"
 
 # String used in output files to keep track of parameters used
 parameter_string=$model_version"_environmental_variable_"$environmental_variable_form"_optimizer_"$optimization_method"_genotype_"$genotype_version"_covariate_method_"$covariate_method
@@ -169,6 +179,7 @@ done
 fi
 
 
+
 ##########################
 # Run permutation for all samples
 permute="True"
@@ -183,6 +194,9 @@ done
 fi
 
 
+
+
+
 ##########################
 # Run permutation for all samples
 permute="True"
@@ -195,6 +209,20 @@ for job_number in $(seq 0 $(($total_jobs-1))); do
     sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
 done
 fi
+
+##########################
+# Run permutation independently in each cell line
+permute="True"
+permutation_scheme="shuffle_lines"
+##########################
+if false; then
+for job_number in $(seq 0 $(($total_jobs-1))); do 
+    # Stem of all output files
+    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
+    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
+done
+fi
+
 
 
 
@@ -270,101 +298,19 @@ fi
 
 
 
-##########################
-# Run permutation independently in each cell line
-permute="True"
-permutation_scheme="shuffle_lines"
-##########################
-if false; then
-for job_number in $(seq 0 $(($total_jobs-1))); do 
-    # Stem of all output files
-    output_stem=$qtl_results_dir$parameter_string"_permutation_scheme_"$permutation_scheme"_permute_"$permute"_"$job_number"_"
-    sbatch dynamic_qtl_shell.sh $joint_test_input_file $correction_factor_file $model_version $output_stem $permute $job_number $total_jobs $optimization_method $permutation_scheme $covariate_method $genotype_version
-done
-fi
-
+permutation_scheme="shuffle_all"
+sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $covariate_method
 
 if false; then
 
 
-permutation_scheme="sample_null"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-sleep 25
-permutation_scheme="shuffle_all_time"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-sleep 25
-permutation_scheme="shuffle_all_include_covs"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
-permutation_scheme="shuffle_all"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-permutation_scheme="sample_null"
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
-permutation_scheme="shuffle_all"
-sh multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
-
-permutation_scheme="shuffle_all"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-sleep 8
-permutation_scheme="shuffle_all_time"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-sleep 8
-permutation_scheme="shuffle_all_include_covs"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
-
-
-
-
-
-
-permutation_scheme="shuffle_lines"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
-permutation_scheme="shuffle_all_genotype_by_line"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-
-permutation_scheme="shuffle_genotype_by_line"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
-
-
-
-permutation_scheme="shuffle_genotype"
-sbatch multiple_testing_correction_and_visualization.sh $parameter_string $qtl_results_dir $target_region_input_file $qtl_visualization_dir $total_jobs $gencode_file $joint_test_input_file $correction_factor_file $permutation_scheme $min_num_biallelic_lines $min_num_biallelic_samples $min_num_het_test_variant_biallelic_samples
 
 
 
 Rscript merge_permutation_scheme_qq_plot.R $qtl_results_dir $qtl_visualization_dir
+fi
 
-
-
+if false; then
 
 
 Rscript merge_permutation_scheme_two_categories_qq_plot.R $qtl_results_dir $qtl_visualization_dir

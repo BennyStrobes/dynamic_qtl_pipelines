@@ -40,35 +40,27 @@ qtl_visualization_dir = args[2]
 
 # Load in results
 
-results_1 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_none_permutation_scheme_none_permute_False_merged_dynamic_qtl_results.txt")
-results_2 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_none_permutation_scheme_shuffle_all_permute_True_merged_dynamic_qtl_results.txt")
-results_3 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_none_permutation_scheme_shuffle_all_include_covs_permute_True_merged_dynamic_qtl_results.txt")
-results_4 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_none_permutation_scheme_shuffle_all_time_permute_True_merged_dynamic_qtl_results.txt")
+results_1 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_dosage_covariate_method_cell_line_fixed_effect_pc1_3Xtime_permutation_scheme_none_permute_False_merged_dynamic_qtl_results.txt")
+results_2 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_dosage_covariate_method_cell_line_fixed_effect_pc1_3Xtime_permutation_scheme_shuffle_all_permute_True_merged_dynamic_qtl_results.txt")
+results_3 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_dosage_covariate_method_cell_line_fixed_effect_pc1_3Xtime_permutation_scheme_sample_null_permute_True_merged_dynamic_qtl_results.txt")
+results_4 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_dosage_covariate_method_cell_line_fixed_effect_pc1_3Xtime_permutation_scheme_shuffle_lines_permute_True_merged_dynamic_qtl_results.txt")
 
 
 
-results_5 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_cell_line_pc1Xtime_permutation_scheme_none_permute_False_merged_dynamic_qtl_results.txt")
-results_6 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_cell_line_pc1Xtime_permutation_scheme_shuffle_all_permute_True_merged_dynamic_qtl_results.txt")
-results_7 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_cell_line_pc1Xtime_permutation_scheme_shuffle_all_include_covs_permute_True_merged_dynamic_qtl_results.txt")
-results_8 <- paste0(results_dir, "te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_round_covariate_method_cell_line_pc1Xtime_permutation_scheme_shuffle_all_time_permute_True_merged_dynamic_qtl_results.txt")
 
 pvalz_1 <- extract_pvalz(results_1)
 pvalz_2 <- extract_pvalz(results_2)
 pvalz_3 <- extract_pvalz(results_3)
 pvalz_4 <- extract_pvalz(results_4)
-pvalz_5 <- extract_pvalz(results_5)
-pvalz_6 <- extract_pvalz(results_6)
-pvalz_7 <- extract_pvalz(results_7)
-pvalz_8 <- extract_pvalz(results_8)
 
 
 uniform_pvalz <- extract_uniform_pvalz(results_1)
 
 
 
-all_pvalues <- c(pvalz_1, pvalz_2, pvalz_3, pvalz_4, pvalz_5, pvalz_6, pvalz_7, pvalz_8)
-type <- c(rep("real/none",length(pvalz_1)), rep("shuffle_all/none",length(pvalz_2)), rep("shuffle_all_include_covs/none",length(pvalz_3)), rep("shuffle_all_time/none",length(pvalz_4)), rep("real/pc1",length(pvalz_5)), rep("shuffle_all/pc1",length(pvalz_6)), rep("shuffle_all_include_covs/pc1",length(pvalz_7)), rep("shuffle_all_time/pc1",length(pvalz_8)))
-uniform <- c(uniform_pvalz, uniform_pvalz, uniform_pvalz, uniform_pvalz, uniform_pvalz, uniform_pvalz, uniform_pvalz, uniform_pvalz)
+all_pvalues <- c(pvalz_1, pvalz_2, pvalz_3, pvalz_4)
+type <- c(rep("real",length(pvalz_1)), rep("shuffle_al",length(pvalz_2)), rep("sample_null",length(pvalz_3)), rep("shuffle_lines",length(pvalz_4)))
+uniform <- c(uniform_pvalz, uniform_pvalz, uniform_pvalz, uniform_pvalz)
 
 df <- data.frame(pvalues=-log10(all_pvalues + .000000000001), expected_pvalues=-log10(uniform + .000000000001), type=factor(type))
 
@@ -81,7 +73,7 @@ scatter <- scatter + labs(colour="Type",x = "Uniform", y = "Real")
 scatter <- scatter + geom_abline()
 scatter <- scatter + scale_x_continuous(limits = c(-.1, max_val + .1), breaks = round(seq(0, max_val, by = 5),1)) + scale_y_continuous(limits = c(-.1,max_val+.1), breaks = round(seq(0, max_val, by = 5),1))
 
-output_file <- paste0(qtl_visualization_dir, "qq_plot_te_log_linear_environmental_variable_time_steps_genotype_round_covariate_method_comparison.png")
+output_file <- paste0(qtl_visualization_dir, "qq_plot_te_log_linear_environmental_variable_time_steps_optimizer_LBFGS_genotype_dosage_covariate_method_cell_line_fixed_effect_pc1_3Xtime_covariate_method_comparison.png")
 ggsave(scatter, file=output_file,width = 20,height=10.5,units="cm")
 
 
